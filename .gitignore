@@ -1,0 +1,26 @@
+/inventory
+
+# ignore files created by running pre-commit locally
+.ansible
+
+# ignore roles pulled by ansible-galaxy
+/roles/galaxy/*
+!/roles/galaxy/.gitkeep
+
+# ignores vscode file
+.vscode
+
+# ignores macos files
+.DS_Store
+
+/requirements.yml
+/setup.yml
+/group_vars/mash_servers
+
+/run/*
+!/run/.gitkeep
+
+/var/
+
+/group_vars/*
+!/group_vars/.gitkeep

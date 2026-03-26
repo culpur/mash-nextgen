@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2023 - 2025 Slavi Pantaleev
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+
+- name: Create the mash system user when UID and GID are unset
+  when: not mash_playbook_uid and not mash_playbook_gid
+  block:
+    - name: Ensure mash group is created
+      ansible.builtin.group:
+        name: "{{ mash_playbook_group_name }}"
+        gid: "{{ omit if mash_playbook_gid is none else mash_playbook_gid }}"
+        state: present
+        system: "{{ mash_playbook_group_system }}"
+      register: mash_base_group_result
+
+    - name: Ensure mash user is created
+      ansible.builtin.user:
+        name: "{{ mash_playbook_user_name }}"
+        uid: "{{ omit if mash_playbook_uid is none else mash_playbook_uid }}"
+        state: present
+        group: "{{ mash_playbook_group_name }}"
+        home: "{{ mash_playbook_user_home }}"
+        create_home: false
+        system: "{{ mash_playbook_user_system }}"
+        shell: "{{ mash_playbook_user_shell }}"
+      register: mash_base_user_result
+
+    - name: Initialize mash_playbook_uid and mash_playbook_gid
+      ansible.builtin.set_fact:
+        mash_playbook_uid: "{{ mash_base_user_result.uid }}"
+        mash_playbook_gid: "{{ mash_base_group_result.gid }}"

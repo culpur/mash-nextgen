@@ -1,0 +1,106 @@
+# SPDX-FileCopyrightText: 2022-2025 Slavi Pantaleev
+# SPDX-FileCopyrightText: 2024, 2025 MDAD project contributors
+# SPDX-FileCopyrightText: 2024-2026 Suguru Hirahara
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+---
+- name: (Deprecation) Catch and report renamed settings
+  ansible.builtin.fail:
+    msg: >-
+      Your configuration contains a variable, which now has a different name.
+      Please change your configuration to rename the variable (`{{ item.old }}` -> `{{ item.new }}`).
+  when: "lookup('ansible.builtin.varnames', ('^' + item.old + '$'), wantlist=True) | length > 0"
+  with_items:
+    - {"old": "docmost_config_redis_hostname", "new": "docmost_redis_hostname"}
+    - {"old": "ghostfolio_config_redis_hostname", "new": "ghostfolio_redis_hostname"}
+    - {"old": "woodpecker_ci_server_database_datasource", "new": "<Removed in favor of the role's configuration>"}
+
+- name: (Deprecation) Catch and report devture_postgres_backup variables
+  ansible.builtin.fail:
+    msg: |-
+      The postgres-backup role in the playbook now lives under the MASH organization (https://github.com/mother-of-all-self-hosting/ansible-role-postgres-backup).
+      The new role is pretty much the same, but uses differently named variables.
+
+      Please change your configuration (vars.yml) to rename all `devture_postgres_backup_`-prefixed variables (`devture_postgres_backup_*` -> `postgres_backup_*`).
+
+      The following variables in your configuration need to be renamed: {{ lookup('ansible.builtin.varnames', '^devture_postgres_backup_.+', wantlist=True) | join(', ') }}
+  when: "lookup('ansible.builtin.varnames', '^devture_postgres_backup_.+', wantlist=True) | length > 0"
+
+- name: (Deprecation) Catch and report devture_postgres variables
+  ansible.builtin.fail:
+    msg: |-
+      The postgres role in the playbook now lives under the MASH organization (https://github.com/mother-of-all-self-hosting/ansible-role-postgres).
+      The new role is pretty much the same, but uses differently named variables.
+
+      Please change your configuration (vars.yml) to rename all `devture_postgres_`-prefixed variables (`devture_postgres_*` -> `postgres_*`).
+
+      The following variables in your configuration need to be renamed: {{ lookup('ansible.builtin.varnames', '^devture_postgres_.+', wantlist=True) | join(', ') }}
+  when: "lookup('ansible.builtin.varnames', '^devture_postgres_.+', wantlist=True) | length > 0"
+
+- name: (Deprecation) Catch and report traefik_certs_dumper variables
+  ansible.builtin.fail:
+    msg: |-
+      The traefik-certs-dumper role in the playbook now lives under the MASH organization (https://github.com/mother-of-all-self-hosting/ansible-role-traefik-certs-dumper).
+      The new role is pretty much the same, but uses differently named variables.
+
+      Please change your configuration (vars.yml) to rename all `devture_traefik_certs_dumper_`-prefixed variables (`devture_traefik_certs_dumper_*` -> `traefik_certs_dumper_*`).
+
+      The following variables in your configuration need to be renamed: {{ lookup('ansible.builtin.varnames', '^devture_traefik_certs_dumper_.+', wantlist=True) | join(', ') }}
+  when: "lookup('ansible.builtin.varnames', '^devture_traefik_certs_dumper_.+', wantlist=True) | length > 0"
+
+- name: (Deprecation) Catch and report devture_traefik variables
+  ansible.builtin.fail:
+    msg: |-
+      The traefik role in the playbook now lives under the MASH organization (https://github.com/mother-of-all-self-hosting/ansible-role-traefik).
+      The new role is pretty much the same, but uses differently named variables.
+
+      Please change your configuration (vars.yml) to rename all `devture_traefik_`-prefixed variables (`devture_traefik_*` -> `traefik_*`).
+
+      The following variables in your configuration need to be renamed: {{ lookup('ansible.builtin.varnames', '^devture_traefik_.+', wantlist=True) | join(', ') }}
+  when: "lookup('ansible.builtin.varnames', '^devture_traefik_.+', wantlist=True) | length > 0"
+
+- name: (Deprecation) Catch and report devture_container_socket_proxy variables
+  ansible.builtin.fail:
+    msg: |-
+      The container-socket-proxy role in the playbook now lives under the MASH organization (https://github.com/mother-of-all-self-hosting/ansible-role-container-socket-proxy).
+      The new role is pretty much the same, but uses differently named variables.
+
+      Please change your configuration (vars.yml) to rename all `devture_container_socket_proxy_`-prefixed variables (`devture_container_socket_proxy_*` -> `container_socket_proxy_*`).
+
+      The following variables in your configuration need to be renamed: {{ lookup('ansible.builtin.varnames', '^devture_container_socket_proxy_.+', wantlist=True) | join(', ') }}
+  when: "lookup('ansible.builtin.varnames', '^devture_container_socket_proxy_.+', wantlist=True) | length > 0"
+
+- name: (Deprecation) Catch and report devture_woodpecker_server variables
+  ansible.builtin.fail:
+    msg: |-
+      The woodpecker-ci-server role in the playbook now lives under the MASH organization (https://github.com/mother-of-all-self-hosting/ansible-role-woodpecker-ci-server).
+      The new role is pretty much the same, but uses differently named variables.
+
+      Please change your configuration (vars.yml) to rename all `devture_woodpecker_ci_server_`-prefixed variables (`devture_woodpecker_ci_server_*` -> `woodpecker_ci_server_*`).
+
+      The following variables in your configuration need to be renamed: {{ lookup('ansible.builtin.varnames', '^devture_woodpecker_ci_server_.+', wantlist=True) | join(', ') }}
+  when: "lookup('ansible.builtin.varnames', '^devture_woodpecker_ci_server_.+', wantlist=True) | length > 0"
+
+- name: (Deprecation) Catch and report devture_woodpecker_agent variables
+  ansible.builtin.fail:
+    msg: |-
+      The woodpecker-ci-agent role in the playbook now lives under the MASH organization (https://github.com/mother-of-all-self-hosting/ansible-role-woodpecker-ci-agent).
+      The new role is pretty much the same, but uses differently named variables.
+
+      Please change your configuration (vars.yml) to rename all `devture_woodpecker_ci_agent_`-prefixed variables (`devture_woodpecker_ci_agent_*` -> `woodpecker_ci_agent_*`).
+
+      The following variables in your configuration need to be renamed: {{ lookup('ansible.builtin.varnames', '^devture_woodpecker_ci_agent_.+', wantlist=True) | join(', ') }}
+  when: "lookup('ansible.builtin.varnames', '^devture_woodpecker_ci_agent_.+', wantlist=True) | length > 0"
+
+- name: (Deprecation) Catch and report Firezone variables
+  ansible.builtin.fail:
+    msg: |-
+      Firezone was completely removed from the playbook in March 2026.
+
+      Please remove all `firezone_*` variables from your configuration file (vars.yml).
+
+      You may also wish to uninstall the service manually. See `docs/services/firezone.md` for more information.
+
+      The following variables in your configuration need to be removed: {{ lookup('ansible.builtin.varnames', '^firezone_.+', wantlist=True) | join(', ') }}
+  when: "lookup('ansible.builtin.varnames', '^firezone_.+', wantlist=True) | length > 0"
