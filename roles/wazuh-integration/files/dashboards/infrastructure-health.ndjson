@@ -1,0 +1,1 @@
+{"type":"dashboard","id":"mash-nextgen-infrastructure-health","attributes":{"title":"mash-nextgen: infrastructure-health","description":"Auto-deployed by mash-nextgen Ansible playbook. Service: infrastructure-health","version":1},"references":[]}

@@ -1,0 +1,29 @@
+---
+# Configure service-specific log collection
+# Wazuh agent collects logs from Docker containers via JSON file driver
+# and from host-level service logs
+
+- name: Create Wazuh shared config directory
+  ansible.builtin.file:
+    path: /var/ossec/etc/shared
+    state: directory
+    owner: root
+    group: wazuh
+    mode: '0750'
+
+- name: Deploy log collection config
+  ansible.builtin.template:
+    src: agent-log-collection.conf.j2
+    dest: /var/ossec/etc/shared/agent-log-collection.conf
+    owner: root
+    group: wazuh
+    mode: '0640'
+  notify: Restart Wazuh agent
+
+# Docker container log paths — discovered dynamically
+- name: Get Docker log directory paths for monitored containers
+  ansible.builtin.shell: |
+    docker inspect --format='{{ '{{' }} .LogPath {{ '}}' }}' $(docker ps -q) 2>/dev/null | head -50
+  register: docker_log_paths
+  changed_when: false
+  failed_when: false

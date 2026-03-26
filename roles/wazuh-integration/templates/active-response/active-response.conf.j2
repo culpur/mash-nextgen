@@ -1,0 +1,60 @@
+<!-- Managed by mash-nextgen — Active Response Configuration -->
+<!-- This file is included by ossec.conf -->
+
+<!-- Firewall drop command (iptables/nftables) -->
+<command>
+  <name>firewall-drop</name>
+  <executable>firewall-drop</executable>
+  <timeout_allowed>yes</timeout_allowed>
+</command>
+
+<!-- Docker restart command (custom) -->
+<command>
+  <name>docker-restart</name>
+  <executable>docker-restart.sh</executable>
+  <timeout_allowed>no</timeout_allowed>
+</command>
+
+<!-- SSH brute force -->
+<active-response>
+  <command>{{ active_response_ssh_brute_force.command }}</command>
+  <location>{{ active_response_ssh_brute_force.location }}</location>
+  <rules_id>{{ active_response_ssh_brute_force.rules_id }}</rules_id>
+  <timeout>{{ active_response_ssh_brute_force.timeout }}</timeout>
+</active-response>
+
+<!-- Web brute force (generic) -->
+<active-response>
+  <command>{{ active_response_web_brute_force.command }}</command>
+  <location>{{ active_response_web_brute_force.location }}</location>
+  <rules_id>{{ active_response_web_brute_force.rules_id }}</rules_id>
+  <timeout>{{ active_response_web_brute_force.timeout }}</timeout>
+</active-response>
+
+{% if wazuh_service_synapse %}
+<!-- Synapse brute force -->
+<active-response>
+  <command>{{ active_response_synapse_brute_force.command }}</command>
+  <location>{{ active_response_synapse_brute_force.location }}</location>
+  <rules_id>{{ active_response_synapse_brute_force.rules_id }}</rules_id>
+  <timeout>{{ active_response_synapse_brute_force.timeout }}</timeout>
+</active-response>
+{% endif %}
+
+{% if wazuh_service_wordpress %}
+<!-- WordPress xmlrpc brute force -->
+<active-response>
+  <command>{{ active_response_wordpress_xmlrpc.command }}</command>
+  <location>{{ active_response_wordpress_xmlrpc.location }}</location>
+  <rules_id>{{ active_response_wordpress_xmlrpc.rules_id }}</rules_id>
+  <timeout>{{ active_response_wordpress_xmlrpc.timeout }}</timeout>
+</active-response>
+{% endif %}
+
+<!-- Docker crash loop restart -->
+<active-response>
+  <command>{{ active_response_docker_crash_loop.command }}</command>
+  <location>{{ active_response_docker_crash_loop.location }}</location>
+  <rules_id>{{ active_response_docker_crash_loop.rules_id }}</rules_id>
+  <timeout>{{ active_response_docker_crash_loop.timeout }}</timeout>
+</active-response>

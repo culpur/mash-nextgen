@@ -1,0 +1,54 @@
+<!-- Managed by mash-nextgen — Matrix Synapse security rules -->
+<group name="synapse,matrix,authentication">
+
+  <rule id="100100" level="5">
+    <decoded_as>synapse-login-failed</decoded_as>
+    <description>Matrix Synapse: Failed login attempt for $(user) from $(srcip)</description>
+    <group>authentication_failed,synapse</group>
+  </rule>
+
+  <rule id="100101" level="10" frequency="5" timeframe="300">
+    <if_matched_sid>100100</if_matched_sid>
+    <same_source_ip/>
+    <description>Matrix Synapse: Brute force attack — 5+ failed logins from $(srcip)</description>
+    <group>authentication_failed,synapse,brute_force</group>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+  </rule>
+
+  <rule id="100102" level="3">
+    <decoded_as>synapse-login-success</decoded_as>
+    <description>Matrix Synapse: Successful login for $(user) from $(srcip)</description>
+    <group>authentication_success,synapse</group>
+  </rule>
+
+  <rule id="100103" level="8">
+    <decoded_as>synapse-registration</decoded_as>
+    <description>Matrix Synapse: New user registration — $(user) from $(srcip)</description>
+    <group>synapse,account_created</group>
+  </rule>
+
+  <rule id="100104" level="12" frequency="3" timeframe="60">
+    <if_matched_sid>100103</if_matched_sid>
+    <same_source_ip/>
+    <description>Matrix Synapse: Mass registration attempt from $(srcip)</description>
+    <group>synapse,brute_force,spam</group>
+    <mitre>
+      <id>T1136</id>
+    </mitre>
+  </rule>
+
+  <rule id="100105" level="3">
+    <decoded_as>synapse-federation</decoded_as>
+    <description>Matrix Synapse: Federation event from $(srcip)</description>
+    <group>synapse,federation</group>
+  </rule>
+
+  <rule id="100106" level="5">
+    <decoded_as>synapse-media-upload</decoded_as>
+    <description>Matrix Synapse: Media upload by $(user)</description>
+    <group>synapse,media</group>
+  </rule>
+
+</group>

@@ -1,0 +1,27 @@
+# Managed by mash-nextgen — WordPress brute force + xmlrpc protection
+[wordpress-login]
+enabled = true
+port = 80,443
+filter = wordpress-login
+logpath = {{ wazuh_traefik_log_path }}
+maxretry = {{ fail2ban_wordpress_maxretry }}
+bantime = {{ fail2ban_wordpress_bantime }}
+findtime = {{ fail2ban_wordpress_findtime }}
+
+[wordpress-xmlrpc]
+enabled = true
+port = 80,443
+filter = wordpress-xmlrpc
+logpath = {{ wazuh_traefik_log_path }}
+maxretry = 2
+bantime = 86400
+findtime = 60
+
+[wordpress-wpscan]
+enabled = true
+port = 80,443
+filter = wordpress-wpscan
+logpath = {{ wazuh_traefik_log_path }}
+maxretry = 5
+bantime = 86400
+findtime = 300

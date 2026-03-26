@@ -1,0 +1,34 @@
+<!-- Managed by mash-nextgen — Matrix Synapse log decoder -->
+<decoder name="synapse">
+  <prematch>synapse|matrix</prematch>
+</decoder>
+
+<decoder name="synapse-login-failed">
+  <parent>synapse</parent>
+  <regex>Failed password login attempt for @(\S+) from (\S+)</regex>
+  <order>user, srcip</order>
+</decoder>
+
+<decoder name="synapse-login-success">
+  <parent>synapse</parent>
+  <regex>Logged in user @(\S+) from (\S+)</regex>
+  <order>user, srcip</order>
+</decoder>
+
+<decoder name="synapse-registration">
+  <parent>synapse</parent>
+  <regex>Registered new user @(\S+) from (\S+)</regex>
+  <order>user, srcip</order>
+</decoder>
+
+<decoder name="synapse-federation">
+  <parent>synapse</parent>
+  <regex>federation \S+ from (\S+)</regex>
+  <order>srcip</order>
+</decoder>
+
+<decoder name="synapse-media-upload">
+  <parent>synapse</parent>
+  <regex>Uploaded file .+ by @(\S+)</regex>
+  <order>user</order>
+</decoder>

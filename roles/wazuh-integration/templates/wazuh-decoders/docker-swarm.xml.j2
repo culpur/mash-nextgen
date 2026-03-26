@@ -1,0 +1,16 @@
+<!-- Managed by mash-nextgen — Docker Swarm event decoder -->
+<decoder name="docker-swarm">
+  <prematch>docker|container|swarm</prematch>
+</decoder>
+
+<decoder name="docker-container-event">
+  <parent>docker-swarm</parent>
+  <regex>container (\S+) (\S+) \(name=(\S+)</regex>
+  <order>extra_data, action, user</order>
+</decoder>
+
+<decoder name="docker-health-check">
+  <parent>docker-swarm</parent>
+  <regex>health_status: (\S+) for container (\S+)</regex>
+  <order>status, extra_data</order>
+</decoder>

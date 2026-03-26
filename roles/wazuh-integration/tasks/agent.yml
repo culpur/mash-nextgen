@@ -1,0 +1,37 @@
+---
+# Install and configure Wazuh agent
+
+- name: Check if Wazuh agent is installed
+  ansible.builtin.command: dpkg -l wazuh-agent
+  register: wazuh_installed
+  changed_when: false
+  failed_when: false
+
+- name: Download Wazuh agent
+  ansible.builtin.get_url:
+    url: "https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_{{ wazuh_agent_version }}-1_amd64.deb"
+    dest: "/tmp/wazuh-agent_{{ wazuh_agent_version }}.deb"
+    mode: '0644'
+  when: wazuh_installed.rc != 0
+
+- name: Install Wazuh agent
+  ansible.builtin.apt:
+    deb: "/tmp/wazuh-agent_{{ wazuh_agent_version }}.deb"
+  environment:
+    WAZUH_MANAGER: "{{ wazuh_manager_address }}"
+  when: wazuh_installed.rc != 0
+
+- name: Configure Wazuh agent
+  ansible.builtin.template:
+    src: ossec.conf.j2
+    dest: /var/ossec/etc/ossec.conf
+    owner: root
+    group: wazuh
+    mode: '0640'
+  notify: Restart Wazuh agent
+
+- name: Ensure Wazuh agent is running
+  ansible.builtin.service:
+    name: wazuh-agent
+    state: started
+    enabled: true

@@ -1,0 +1,43 @@
+<!-- Managed by mash-nextgen — Traefik reverse proxy security rules -->
+<group name="traefik,web,proxy">
+
+  <rule id="100300" level="5">
+    <decoded_as>traefik-access-json</decoded_as>
+    <field name="OriginStatus">^4\d\d$</field>
+    <description>Traefik: Client error $(OriginStatus) from $(ClientHost) to $(RequestPath)</description>
+    <group>traefik,web_error</group>
+  </rule>
+
+  <rule id="100301" level="8">
+    <decoded_as>traefik-access-json</decoded_as>
+    <field name="OriginStatus">^5\d\d$</field>
+    <description>Traefik: Server error $(OriginStatus) for $(ServiceName)</description>
+    <group>traefik,server_error</group>
+  </rule>
+
+  <rule id="100302" level="10" frequency="50" timeframe="60">
+    <if_matched_sid>100300</if_matched_sid>
+    <same_field>ClientHost</same_field>
+    <description>Traefik: Path scanning — 50+ 4xx errors from $(ClientHost)</description>
+    <group>traefik,scanning,attack</group>
+    <mitre>
+      <id>T1595</id>
+    </mitre>
+  </rule>
+
+  <rule id="100303" level="12" frequency="10" timeframe="60">
+    <if_matched_sid>100301</if_matched_sid>
+    <same_field>ServiceName</same_field>
+    <description>Traefik: Service $(ServiceName) returning repeated 5xx errors</description>
+    <group>traefik,service_degradation</group>
+  </rule>
+
+  <rule id="100304" level="3">
+    <decoded_as>traefik-access-json</decoded_as>
+    <field name="OriginStatus">^200$</field>
+    <description>Traefik: Successful request from $(ClientHost)</description>
+    <group>traefik,access</group>
+    <options>no_log</options>
+  </rule>
+
+</group>

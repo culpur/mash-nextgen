@@ -1,0 +1,32 @@
+---
+# Wazuh active-response configuration
+# Automated threat mitigation based on detected events
+
+- name: Deploy custom active-response scripts
+  ansible.builtin.copy:
+    content: |
+      #!/bin/bash
+      # Docker container restart on crash loop
+      # Called by Wazuh active-response
+      ACTION=$1
+      USER=$2
+      IP=$3
+      CONTAINER=$4
+
+      if [ "$ACTION" = "add" ]; then
+        logger -t wazuh-ar "Restarting crashed container: $CONTAINER"
+        docker restart "$CONTAINER" 2>/dev/null || true
+      fi
+    dest: /var/ossec/active-response/bin/docker-restart.sh
+    mode: '0750'
+    owner: root
+    group: wazuh
+
+- name: Deploy active-response configuration
+  ansible.builtin.template:
+    src: active-response/active-response.conf.j2
+    dest: /var/ossec/etc/shared/active-response.conf
+    owner: root
+    group: wazuh
+    mode: '0640'
+  notify: Restart Wazuh agent

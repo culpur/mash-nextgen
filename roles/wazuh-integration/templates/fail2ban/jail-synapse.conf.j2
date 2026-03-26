@@ -1,0 +1,18 @@
+# Managed by mash-nextgen — Matrix Synapse brute force protection
+[synapse]
+enabled = true
+port = 80,443,8448
+filter = synapse
+logpath = {{ wazuh_synapse_log_path }}
+maxretry = {{ fail2ban_synapse_maxretry }}
+bantime = {{ fail2ban_synapse_bantime }}
+findtime = {{ fail2ban_synapse_findtime }}
+
+[synapse-register]
+enabled = true
+port = 80,443
+filter = synapse-register
+logpath = {{ wazuh_synapse_log_path }}
+maxretry = 3
+bantime = 86400
+findtime = 300

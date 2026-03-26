@@ -1,0 +1,9 @@
+# Managed by mash-nextgen — Authentik SSO brute force protection
+[authentik]
+enabled = true
+port = 80,443
+filter = authentik
+logpath = /var/log/syslog
+maxretry = {{ fail2ban_authentik_maxretry }}
+bantime = {{ fail2ban_authentik_bantime }}
+findtime = {{ fail2ban_authentik_findtime }}

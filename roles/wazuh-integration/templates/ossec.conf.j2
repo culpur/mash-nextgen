@@ -1,0 +1,116 @@
+<!-- Managed by mash-nextgen Ansible playbook -->
+<ossec_config>
+  <client>
+    <server>
+      <address>{{ wazuh_manager_address }}</address>
+      <port>{{ wazuh_manager_port }}</port>
+      <protocol>tcp</protocol>
+    </server>
+    <crypto_method>aes</crypto_method>
+  </client>
+
+  <!-- File Integrity Monitoring -->
+  <syscheck>
+    <disabled>no</disabled>
+    <frequency>43200</frequency>
+    <directories check_all="yes" report_changes="yes">/etc,/usr/bin,/usr/sbin,/bin,/sbin</directories>
+    <directories check_all="yes" report_changes="yes">/var/ossec/etc</directories>
+{% if wazuh_service_synapse %}
+    <directories check_all="yes">/matrix/synapse/config</directories>
+{% endif %}
+{% if wazuh_service_authentik %}
+    <directories check_all="yes">/mash/authentik</directories>
+{% endif %}
+    <ignore>/etc/mtab</ignore>
+    <ignore>/etc/hosts.deny</ignore>
+    <ignore>/etc/adjtime</ignore>
+    <ignore>/etc/resolv.conf</ignore>
+  </syscheck>
+
+  <!-- Log Collection -->
+  <localfile>
+    <log_format>syslog</log_format>
+    <location>/var/log/syslog</location>
+  </localfile>
+
+  <localfile>
+    <log_format>syslog</log_format>
+    <location>/var/log/auth.log</location>
+  </localfile>
+
+  <localfile>
+    <log_format>json</log_format>
+    <location>/var/log/fail2ban.log</location>
+  </localfile>
+
+{% if wazuh_service_traefik %}
+  <!-- Traefik access logs -->
+  <localfile>
+    <log_format>json</log_format>
+    <location>{{ wazuh_traefik_log_path }}</location>
+    <label key="service">traefik</label>
+  </localfile>
+{% endif %}
+
+{% if wazuh_service_synapse %}
+  <!-- Matrix Synapse logs -->
+  <localfile>
+    <log_format>multi-line:3</log_format>
+    <location>{{ wazuh_synapse_log_path }}</location>
+    <label key="service">synapse</label>
+  </localfile>
+{% endif %}
+
+  <!-- Docker daemon logs -->
+  <localfile>
+    <log_format>json</log_format>
+    <location>/var/log/docker.log</location>
+    <label key="service">docker</label>
+  </localfile>
+
+  <!-- Docker container logs via journald -->
+  <localfile>
+    <log_format>journald</log_format>
+    <location>journald</location>
+    <filter_type>content</filter_type>
+    <filter_value>docker</filter_value>
+  </localfile>
+
+{% if wazuh_active_response_enabled %}
+  <!-- Active Response -->
+  <active-response>
+    <command>firewall-drop</command>
+    <location>local</location>
+    <rules_id>{{ active_response_ssh_brute_force.rules_id }}</rules_id>
+    <timeout>{{ active_response_ssh_brute_force.timeout }}</timeout>
+  </active-response>
+
+{% if wazuh_service_synapse %}
+  <active-response>
+    <command>firewall-drop</command>
+    <location>local</location>
+    <rules_id>{{ active_response_synapse_brute_force.rules_id }}</rules_id>
+    <timeout>{{ active_response_synapse_brute_force.timeout }}</timeout>
+  </active-response>
+{% endif %}
+
+{% if wazuh_service_wordpress %}
+  <active-response>
+    <command>firewall-drop</command>
+    <location>local</location>
+    <rules_id>{{ active_response_wordpress_xmlrpc.rules_id }}</rules_id>
+    <timeout>{{ active_response_wordpress_xmlrpc.timeout }}</timeout>
+  </active-response>
+{% endif %}
+{% endif %}
+
+  <!-- Vulnerability detection -->
+  <wodle name="syscollector">
+    <disabled>no</disabled>
+    <interval>1h</interval>
+    <scan_on_start>yes</scan_on_start>
+    <packages>yes</packages>
+    <ports all="yes">yes</ports>
+    <processes>yes</processes>
+  </wodle>
+</ossec_config>

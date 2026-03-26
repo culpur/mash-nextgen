@@ -1,0 +1,28 @@
+<!-- Managed by mash-nextgen — WordPress log decoder (via Traefik access logs) -->
+<decoder name="wordpress">
+  <prematch>wp-login|xmlrpc|wp-admin|wp-json</prematch>
+</decoder>
+
+<decoder name="wordpress-login-attempt">
+  <parent>wordpress</parent>
+  <regex>(\S+) .+ "POST .*/wp-login.php</regex>
+  <order>srcip</order>
+</decoder>
+
+<decoder name="wordpress-xmlrpc">
+  <parent>wordpress</parent>
+  <regex>(\S+) .+ "POST .*/xmlrpc.php</regex>
+  <order>srcip</order>
+</decoder>
+
+<decoder name="wordpress-admin-access">
+  <parent>wordpress</parent>
+  <regex>(\S+) .+ "(GET|POST) .*/wp-admin</regex>
+  <order>srcip</order>
+</decoder>
+
+<decoder name="wordpress-rest-api">
+  <parent>wordpress</parent>
+  <regex>(\S+) .+ "(GET|POST|PUT|DELETE) .*/wp-json/</regex>
+  <order>srcip</order>
+</decoder>

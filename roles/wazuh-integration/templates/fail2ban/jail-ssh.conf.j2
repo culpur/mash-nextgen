@@ -1,0 +1,9 @@
+# Managed by mash-nextgen
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = {{ fail2ban_ssh_maxretry }}
+bantime = {{ fail2ban_ssh_bantime }}
+findtime = {{ fail2ban_ssh_findtime }}

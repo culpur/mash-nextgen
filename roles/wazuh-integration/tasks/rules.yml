@@ -1,0 +1,57 @@
+---
+# Deploy custom Wazuh decoders and rules to the Wazuh manager
+# These are pushed via the Wazuh API or SCP'd to the manager host
+
+- name: Create rules staging directory
+  ansible.builtin.file:
+    path: /opt/wazuh-custom-rules
+    state: directory
+    mode: '0755'
+
+- name: Deploy custom decoders
+  ansible.builtin.template:
+    src: "wazuh-decoders/{{ item }}.xml.j2"
+    dest: "/opt/wazuh-custom-rules/{{ item }}-decoder.xml"
+    mode: '0644'
+  loop:
+    - synapse
+    - authentik
+    - wordpress
+    - traefik
+    - docker-swarm
+  when: >-
+    (item == 'synapse' and wazuh_service_synapse) or
+    (item == 'authentik' and wazuh_service_authentik) or
+    (item == 'wordpress' and wazuh_service_wordpress) or
+    (item == 'traefik' and wazuh_service_traefik) or
+    (item == 'docker-swarm')
+
+- name: Deploy custom rules
+  ansible.builtin.template:
+    src: "wazuh-rules/{{ item }}.xml.j2"
+    dest: "/opt/wazuh-custom-rules/{{ item }}-rules.xml"
+    mode: '0644'
+  loop:
+    - synapse
+    - authentik
+    - wordpress
+    - traefik
+    - docker-swarm
+    - active-response
+  when: >-
+    (item == 'synapse' and wazuh_service_synapse) or
+    (item == 'authentik' and wazuh_service_authentik) or
+    (item == 'wordpress' and wazuh_service_wordpress) or
+    (item == 'traefik' and wazuh_service_traefik) or
+    (item == 'docker-swarm') or
+    (item == 'active-response' and wazuh_active_response_enabled)
+
+- name: Display deployed rules
+  ansible.builtin.find:
+    paths: /opt/wazuh-custom-rules
+    patterns: "*.xml"
+  register: deployed_rules
+
+- name: Show deployed rules
+  ansible.builtin.debug:
+    msg: "{{ deployed_rules.files | map(attribute='path') | list }}"

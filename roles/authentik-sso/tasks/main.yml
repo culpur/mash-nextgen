@@ -1,0 +1,97 @@
+---
+# Authentik SSO Integration
+#
+# Creates OIDC/proxy providers and applications in Authentik
+# for each enabled service via the Authentik API.
+
+- name: Skip SSO integration if Authentik is disabled
+  ansible.builtin.debug:
+    msg: "Authentik SSO integration is disabled"
+  when: not authentik_sso_enabled
+
+- name: Build list of SSO-enabled services
+  ansible.builtin.set_fact:
+    sso_services: >-
+      {{
+        (authentik_sso_synapse.enabled | ternary([authentik_sso_synapse | combine({'name': 'synapse'})], [])) +
+        (authentik_sso_wordpress.enabled | ternary([authentik_sso_wordpress | combine({'name': 'wordpress'})], [])) +
+        (authentik_sso_portainer.enabled | ternary([authentik_sso_portainer | combine({'name': 'portainer'})], [])) +
+        (authentik_sso_wazuh.enabled | ternary([authentik_sso_wazuh | combine({'name': 'wazuh'})], [])) +
+        (authentik_sso_opencti.enabled | ternary([authentik_sso_opencti | combine({'name': 'opencti'})], [])) +
+        (authentik_sso_gitea.enabled | ternary([authentik_sso_gitea | combine({'name': 'gitea'})], [])) +
+        (authentik_sso_ems.enabled | ternary([authentik_sso_ems | combine({'name': 'ems'})], []))
+      }}
+  when: authentik_sso_enabled
+
+- name: Display SSO services to configure
+  ansible.builtin.debug:
+    msg: "Configuring SSO for: {{ sso_services | map(attribute='name') | list }}"
+  when: authentik_sso_enabled and sso_services | length > 0
+
+- name: Create OIDC providers in Authentik
+  ansible.builtin.uri:
+    url: "{{ authentik_api_url }}/providers/oauth2/"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ authentik_api_token }}"
+    body_format: json
+    body:
+      name: "{{ item.name }}-provider"
+      authorization_flow: "default-provider-authorization-implicit-consent"
+      client_id: "{{ item.client_id }}"
+      client_type: "confidential"
+      redirect_uris: "{{ item.redirect_uris | join('\n') }}"
+      property_mappings:
+        - "openid"
+        - "profile"
+        - "email"
+    validate_certs: false
+    status_code: [200, 201, 400]  # 400 = already exists
+  loop: "{{ sso_services | selectattr('provider_type', 'equalto', 'oauth2') | list }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - authentik_sso_enabled
+    - authentik_api_token | length > 0
+  register: provider_results
+  failed_when: false
+  run_once: true
+
+- name: Create applications in Authentik
+  ansible.builtin.uri:
+    url: "{{ authentik_api_url }}/core/applications/"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ authentik_api_token }}"
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      slug: "{{ item.name }}"
+      provider: "{{ item.name }}-provider"
+      meta_launch_url: "{{ item.redirect_uris[0] | default('') }}"
+    validate_certs: false
+    status_code: [200, 201, 400]
+  loop: "{{ sso_services }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - authentik_sso_enabled
+    - authentik_api_token | length > 0
+  failed_when: false
+  run_once: true
+
+- name: Configure Traefik ForwardAuth for proxy-auth services
+  ansible.builtin.debug:
+    msg: |
+      ForwardAuth middleware for Traefik:
+        Address: {{ authentik_sso_traefik.forward_auth_url }}
+        Services using proxy auth: uptime-kuma, searxng, traefik-dashboard
+
+      Add to Traefik labels:
+        traefik.http.middlewares.authentik.forwardAuth.address={{ authentik_sso_traefik.forward_auth_url }}
+        traefik.http.middlewares.authentik.forwardAuth.trustForwardHeader=true
+        traefik.http.middlewares.authentik.forwardAuth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email
+  when:
+    - authentik_sso_enabled
+    - authentik_sso_traefik.enabled
+  run_once: true

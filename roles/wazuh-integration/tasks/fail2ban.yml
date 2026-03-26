@@ -1,0 +1,80 @@
+---
+# Deploy service-specific fail2ban jails
+
+- name: Ensure fail2ban is installed
+  ansible.builtin.package:
+    name: fail2ban
+    state: present
+
+- name: Deploy SSH jail
+  ansible.builtin.template:
+    src: fail2ban/jail-ssh.conf.j2
+    dest: /etc/fail2ban/jail.d/ssh.conf
+    mode: '0644'
+  notify: Restart fail2ban
+
+- name: Deploy Synapse jail
+  ansible.builtin.template:
+    src: fail2ban/jail-synapse.conf.j2
+    dest: /etc/fail2ban/jail.d/synapse.conf
+    mode: '0644'
+  when: wazuh_fail2ban_synapse
+  notify: Restart fail2ban
+
+- name: Remove Synapse jail when disabled
+  ansible.builtin.file:
+    path: /etc/fail2ban/jail.d/synapse.conf
+    state: absent
+  when: not wazuh_fail2ban_synapse
+  notify: Restart fail2ban
+
+- name: Deploy Authentik jail
+  ansible.builtin.template:
+    src: fail2ban/jail-authentik.conf.j2
+    dest: /etc/fail2ban/jail.d/authentik.conf
+    mode: '0644'
+  when: wazuh_fail2ban_authentik
+  notify: Restart fail2ban
+
+- name: Remove Authentik jail when disabled
+  ansible.builtin.file:
+    path: /etc/fail2ban/jail.d/authentik.conf
+    state: absent
+  when: not wazuh_fail2ban_authentik
+  notify: Restart fail2ban
+
+- name: Deploy WordPress jail
+  ansible.builtin.template:
+    src: fail2ban/jail-wordpress.conf.j2
+    dest: /etc/fail2ban/jail.d/wordpress.conf
+    mode: '0644'
+  when: wazuh_fail2ban_wordpress
+  notify: Restart fail2ban
+
+- name: Remove WordPress jail when disabled
+  ansible.builtin.file:
+    path: /etc/fail2ban/jail.d/wordpress.conf
+    state: absent
+  when: not wazuh_fail2ban_wordpress
+  notify: Restart fail2ban
+
+- name: Deploy Traefik jail
+  ansible.builtin.template:
+    src: fail2ban/jail-traefik.conf.j2
+    dest: /etc/fail2ban/jail.d/traefik.conf
+    mode: '0644'
+  when: wazuh_fail2ban_traefik
+  notify: Restart fail2ban
+
+- name: Remove Traefik jail when disabled
+  ansible.builtin.file:
+    path: /etc/fail2ban/jail.d/traefik.conf
+    state: absent
+  when: not wazuh_fail2ban_traefik
+  notify: Restart fail2ban
+
+- name: Ensure fail2ban is running
+  ansible.builtin.service:
+    name: fail2ban
+    state: started
+    enabled: true

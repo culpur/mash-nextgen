@@ -1,0 +1,46 @@
+<!-- Managed by mash-nextgen — Dynamic log collection based on enabled services -->
+<!-- Included by ossec.conf -->
+
+{% if wazuh_service_traefik %}
+<!-- Traefik access logs (JSON format) -->
+<localfile>
+  <log_format>json</log_format>
+  <location>{{ wazuh_traefik_log_path }}</location>
+  <label key="service">traefik</label>
+  <label key="type">access</label>
+</localfile>
+{% endif %}
+
+{% if wazuh_service_synapse %}
+<!-- Matrix Synapse homeserver log -->
+<localfile>
+  <log_format>multi-line:3</log_format>
+  <location>{{ wazuh_synapse_log_path }}</location>
+  <label key="service">synapse</label>
+  <label key="type">homeserver</label>
+</localfile>
+{% endif %}
+
+{% if wazuh_service_postgresql %}
+<!-- PostgreSQL logs -->
+<localfile>
+  <log_format>multi-line:3</log_format>
+  <location>/var/log/postgresql/*.log</location>
+  <label key="service">postgresql</label>
+</localfile>
+{% endif %}
+
+<!-- Docker container events via journald -->
+<localfile>
+  <log_format>journald</log_format>
+  <location>journald</location>
+  <filter_type>content</filter_type>
+  <filter_value>docker</filter_value>
+</localfile>
+
+<!-- Fail2ban log -->
+<localfile>
+  <log_format>syslog</log_format>
+  <location>/var/log/fail2ban.log</location>
+  <label key="service">fail2ban</label>
+</localfile>

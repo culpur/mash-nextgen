@@ -1,0 +1,58 @@
+---
+# Wazuh Integration — Main orchestrator
+#
+# Installs agent, configures log collection, deploys dashboards,
+# sets up fail2ban jails, and enables active-response — all based
+# on which services are enabled in the inventory.
+
+- name: Skip Wazuh integration if disabled
+  ansible.builtin.debug:
+    msg: "Wazuh integration is disabled"
+  when: not wazuh_integration_enabled
+
+- name: Detect enabled services
+  ansible.builtin.debug:
+    msg: |
+      Detected services:
+        Synapse: {{ wazuh_service_synapse }}
+        Bridges: {{ wazuh_service_bridges }}
+        Authentik: {{ wazuh_service_authentik }}
+        WordPress: {{ wazuh_service_wordpress }}
+        Jitsi: {{ wazuh_service_jitsi }}
+        OpenCTI: {{ wazuh_service_opencti }}
+        Registry: {{ wazuh_service_registry }}
+        SearXNG: {{ wazuh_service_searxng }}
+        Traefik: {{ wazuh_service_traefik }}
+        PostgreSQL: {{ wazuh_service_postgresql }}
+  when: wazuh_integration_enabled
+
+- name: Install and configure Wazuh agent
+  ansible.builtin.include_tasks: agent.yml
+  when: wazuh_integration_enabled
+
+- name: Configure service-specific log collection
+  ansible.builtin.include_tasks: log-collection.yml
+  when: wazuh_integration_enabled
+
+- name: Deploy fail2ban jails
+  ansible.builtin.include_tasks: fail2ban.yml
+  when: wazuh_integration_enabled and wazuh_fail2ban_auto
+
+- name: Configure active-response rules
+  ansible.builtin.include_tasks: active-response.yml
+  when: wazuh_integration_enabled and wazuh_active_response_enabled
+
+- name: Deploy Wazuh dashboards
+  ansible.builtin.include_tasks: dashboards.yml
+  when:
+    - wazuh_integration_enabled
+    - wazuh_dashboards_auto
+    - inventory_hostname in groups['swarm_managers']
+  run_once: true
+
+- name: Deploy custom decoders and rules to Wazuh manager
+  ansible.builtin.include_tasks: rules.yml
+  when:
+    - wazuh_integration_enabled
+    - inventory_hostname in groups['swarm_managers']
+  run_once: true

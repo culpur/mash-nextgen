@@ -1,0 +1,36 @@
+<!-- Managed by mash-nextgen — Active response trigger rules -->
+<group name="active-response">
+
+  <!-- Composite rules that trigger active-response actions -->
+
+  <rule id="100400" level="10">
+    <if_sid>100101</if_sid>
+    <description>ACTIVE RESPONSE: Blocking IP $(srcip) — Synapse brute force</description>
+    <group>active_response,synapse</group>
+  </rule>
+
+  <rule id="100401" level="10">
+    <if_sid>100201</if_sid>
+    <description>ACTIVE RESPONSE: Blocking IP $(srcip) — WordPress xmlrpc brute force</description>
+    <group>active_response,wordpress</group>
+  </rule>
+
+  <rule id="100402" level="10">
+    <if_sid>100302</if_sid>
+    <description>ACTIVE RESPONSE: Blocking IP $(srcip) — Traefik path scanning</description>
+    <group>active_response,traefik</group>
+  </rule>
+
+  <rule id="100403" level="8">
+    <if_sid>100301</if_sid>
+    <description>ACTIVE RESPONSE: Restarting container $(user) — crash loop detected</description>
+    <group>active_response,docker</group>
+  </rule>
+
+  <rule id="100404" level="10">
+    <if_sid>100111</if_sid>
+    <description>ACTIVE RESPONSE: Blocking IP $(srcip) — Authentik SSO brute force</description>
+    <group>active_response,authentik</group>
+  </rule>
+
+</group>

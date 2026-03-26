@@ -1,0 +1,131 @@
+---
+# Authentik SSO Integration for mash-nextgen
+#
+# Automatically configures OIDC/SAML providers in Authentik
+# and wires SSO into each enabled service.
+#
+# Requires: authentik_enabled: true in your vars.yml
+
+authentik_sso_enabled: "{{ authentik_enabled | default(false) }}"
+authentik_base_url: "https://login.{{ domain }}"
+authentik_api_token: ""  # Set in vault
+
+# Domain used for all services
+domain: "example.com"
+
+# === Per-Service SSO Configuration ===
+# Each service gets an OIDC application + provider in Authentik
+# Auto-enabled when the service is enabled
+
+# Proxmox
+authentik_sso_proxmox:
+  enabled: false  # Manual — Proxmox needs realm config
+  client_id: "proxmox"
+  provider_type: "oauth2"
+  redirect_uris: []
+
+# Matrix Synapse (via OIDC)
+authentik_sso_synapse:
+  enabled: "{{ matrix_homeserver_implementation | default('') == 'synapse' }}"
+  client_id: "matrix-synapse"
+  provider_type: "oauth2"
+  redirect_uris:
+    - "https://matrix.{{ domain }}/_synapse/client/oidc/callback"
+  scopes: ["openid", "profile", "email"]
+
+# Element Web (delegates to Synapse OIDC)
+# No separate provider needed — Element uses Synapse's OIDC
+
+# WordPress (via OIDC plugin)
+authentik_sso_wordpress:
+  enabled: "{{ wordpress_enabled | default(false) }}"
+  client_id: "wordpress"
+  provider_type: "oauth2"
+  redirect_uris:
+    - "https://{{ domain }}/wp-admin/admin-ajax.php?action=openid-connect-authorize"
+  scopes: ["openid", "profile", "email"]
+
+# Portainer
+authentik_sso_portainer:
+  enabled: "{{ portainer_enabled | default(false) }}"
+  client_id: "portainer"
+  provider_type: "oauth2"
+  redirect_uris:
+    - "https://portainer.{{ domain }}"
+  scopes: ["openid", "profile", "email"]
+
+# Grafana / Wazuh Dashboard
+authentik_sso_wazuh:
+  enabled: "{{ wazuh_integration_enabled | default(false) }}"
+  client_id: "wazuh-dashboard"
+  provider_type: "oauth2"
+  redirect_uris:
+    - "https://siem.{{ domain }}/auth/openid/login"
+  scopes: ["openid", "profile", "email"]
+
+# OpenCTI
+authentik_sso_opencti:
+  enabled: "{{ opencti_enabled | default(false) }}"
+  client_id: "opencti"
+  provider_type: "oauth2"
+  redirect_uris:
+    - "https://opencti.{{ domain }}/auth/oic/callback"
+  scopes: ["openid", "profile", "email"]
+
+# Gitea
+authentik_sso_gitea:
+  enabled: "{{ gitea_enabled | default(false) }}"
+  client_id: "gitea"
+  provider_type: "oauth2"
+  redirect_uris:
+    - "https://git.{{ domain }}/user/oauth2/authentik/callback"
+  scopes: ["openid", "profile", "email"]
+
+# Uptime Kuma (basic proxy auth — no native OIDC)
+authentik_sso_uptime_kuma:
+  enabled: false  # Uptime Kuma doesn't support OIDC natively
+  proxy_auth: true  # Use Authentik proxy provider instead
+
+# SearXNG (proxy auth)
+authentik_sso_searxng:
+  enabled: false  # SearXNG doesn't support OIDC
+  proxy_auth: true
+
+# Maubot
+authentik_sso_maubot:
+  enabled: false  # Maubot uses Matrix auth, not OIDC
+
+# Traefik Dashboard
+authentik_sso_traefik:
+  enabled: "{{ traefik_dashboard_enabled | default(false) }}"
+  client_id: "traefik"
+  provider_type: "proxy"  # ForwardAuth via Authentik proxy
+  forward_auth_url: "{{ authentik_base_url }}/outpost.goauthentik.io/auth/traefik"
+
+# EMS Platform
+authentik_sso_ems:
+  enabled: false  # EMS has its own auth — configure separately
+  client_id: "ems"
+  provider_type: "oauth2"
+  redirect_uris:
+    - "https://ems.{{ domain }}/api/auth/callback/authentik"
+  scopes: ["openid", "profile", "email"]
+
+# === Authentik API Settings ===
+authentik_api_url: "{{ authentik_base_url }}/api/v3"
+
+# === Group Mappings ===
+# Map Authentik groups to service roles
+authentik_group_mappings:
+  admins:
+    services: ["*"]
+    role: "admin"
+  users:
+    services: ["matrix", "element", "wordpress", "searxng"]
+    role: "user"
+  soc:
+    services: ["wazuh", "opencti", "uptime-kuma"]
+    role: "analyst"
+  devops:
+    services: ["portainer", "gitea", "traefik", "ems"]
+    role: "editor"

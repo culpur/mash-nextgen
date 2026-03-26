@@ -1,0 +1,1 @@
+{"type":"dashboard","id":"mash-nextgen-docker-registry","attributes":{"title":"mash-nextgen: docker-registry","description":"Auto-deployed by mash-nextgen Ansible playbook. Service: docker-registry","version":1},"references":[]}

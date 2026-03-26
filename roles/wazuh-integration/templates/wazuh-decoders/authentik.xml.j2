@@ -1,0 +1,28 @@
+<!-- Managed by mash-nextgen — Authentik SSO log decoder -->
+<decoder name="authentik">
+  <prematch>authentik</prematch>
+</decoder>
+
+<decoder name="authentik-login-failed">
+  <parent>authentik</parent>
+  <regex>LoginFailed.*username=(\S+).*remote_ip=(\S+)</regex>
+  <order>user, srcip</order>
+</decoder>
+
+<decoder name="authentik-login-success">
+  <parent>authentik</parent>
+  <regex>Login.*username=(\S+).*remote_ip=(\S+)</regex>
+  <order>user, srcip</order>
+</decoder>
+
+<decoder name="authentik-token-failed">
+  <parent>authentik</parent>
+  <regex>InvalidToken.*remote_ip=(\S+)</regex>
+  <order>srcip</order>
+</decoder>
+
+<decoder name="authentik-authorization">
+  <parent>authentik</parent>
+  <regex>AuthorizationCode.*application=(\S+).*user=(\S+)</regex>
+  <order>extra_data, user</order>
+</decoder>

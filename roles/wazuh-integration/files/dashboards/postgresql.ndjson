@@ -1,0 +1,1 @@
+{"type":"dashboard","id":"mash-nextgen-postgresql","attributes":{"title":"mash-nextgen: postgresql","description":"Auto-deployed by mash-nextgen Ansible playbook. Service: postgresql","version":1},"references":[]}

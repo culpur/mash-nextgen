@@ -1,0 +1,87 @@
+---
+# Deploy Wazuh dashboards via Wazuh Indexer API
+# Dashboards are NDJSON saved objects imported into the indexer
+#
+# Each dashboard file is only deployed when its corresponding service is enabled.
+# When a service is disabled, its dashboard is removed.
+
+- name: Build list of dashboards to deploy
+  ansible.builtin.set_fact:
+    wazuh_dashboards_to_deploy: >-
+      {{
+        (wazuh_dashboard_infrastructure | ternary(['security-overview', 'infrastructure-health'], [])) +
+        (wazuh_dashboard_docker_swarm | ternary(['docker-swarm'], [])) +
+        (wazuh_dashboard_synapse | ternary(['matrix-synapse'], [])) +
+        (wazuh_dashboard_bridges | ternary(['matrix-bridges'], [])) +
+        (wazuh_dashboard_authentik | ternary(['authentik'], [])) +
+        (wazuh_dashboard_wordpress | ternary(['wordpress'], [])) +
+        (wazuh_dashboard_jitsi | ternary(['jitsi'], [])) +
+        (wazuh_dashboard_opencti | ternary(['opencti'], [])) +
+        (wazuh_dashboard_registry | ternary(['docker-registry'], [])) +
+        (wazuh_dashboard_traefik | ternary(['traefik-access'], [])) +
+        (wazuh_dashboard_postgresql | ternary(['postgresql'], [])) +
+        (wazuh_dashboard_seo | ternary(['seo-marketing'], [])) +
+        (wazuh_dashboard_compliance | ternary(['compliance'], []))
+      }}
+
+- name: Display dashboards to deploy
+  ansible.builtin.debug:
+    msg: "Deploying dashboards: {{ wazuh_dashboards_to_deploy }}"
+
+- name: Build list of all possible dashboards
+  ansible.builtin.set_fact:
+    wazuh_all_dashboards:
+      - security-overview
+      - infrastructure-health
+      - docker-swarm
+      - matrix-synapse
+      - matrix-bridges
+      - authentik
+      - wordpress
+      - jitsi
+      - opencti
+      - docker-registry
+      - traefik-access
+      - postgresql
+      - seo-marketing
+      - compliance
+
+- name: Determine dashboards to remove
+  ansible.builtin.set_fact:
+    wazuh_dashboards_to_remove: "{{ wazuh_all_dashboards | difference(wazuh_dashboards_to_deploy) }}"
+
+- name: Deploy dashboard files
+  ansible.builtin.copy:
+    src: "dashboards/{{ item }}.ndjson"
+    dest: "/opt/wazuh-dashboards/{{ item }}.ndjson"
+    mode: '0644'
+  loop: "{{ wazuh_dashboards_to_deploy }}"
+  when: wazuh_dashboards_to_deploy | length > 0
+  failed_when: false  # Dashboards are built incrementally
+
+- name: Import dashboards to Wazuh Indexer
+  ansible.builtin.uri:
+    url: "{{ wazuh_dashboard_api_url }}/api/saved_objects/_import?overwrite=true"
+    method: POST
+    user: "{{ wazuh_dashboard_api_user }}"
+    password: "{{ wazuh_dashboard_api_password }}"
+    body_format: form-multipart
+    body:
+      file:
+        filename: "{{ item }}.ndjson"
+        content: "{{ lookup('file', '/opt/wazuh-dashboards/' + item + '.ndjson', errors='ignore') }}"
+    validate_certs: false
+    status_code: [200, 201]
+  loop: "{{ wazuh_dashboards_to_deploy }}"
+  when:
+    - wazuh_dashboard_api_password | length > 0
+    - wazuh_dashboards_to_deploy | length > 0
+  failed_when: false  # Don't fail if dashboard API is unreachable
+  changed_when: false
+
+- name: Remove disabled dashboards
+  ansible.builtin.file:
+    path: "/opt/wazuh-dashboards/{{ item }}.ndjson"
+    state: absent
+  loop: "{{ wazuh_dashboards_to_remove }}"
+  when: wazuh_dashboards_to_remove | length > 0

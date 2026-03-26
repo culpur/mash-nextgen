@@ -1,0 +1,1 @@
+{"type":"dashboard","id":"mash-nextgen-docker-swarm","attributes":{"title":"mash-nextgen: docker-swarm","description":"Auto-deployed by mash-nextgen Ansible playbook. Service: docker-swarm","version":1},"references":[]}

@@ -1,0 +1,27 @@
+# Managed by mash-nextgen — Traefik rate limiting + path scanning protection
+[traefik-ratelimit]
+enabled = true
+port = 80,443
+filter = traefik-ratelimit
+logpath = {{ wazuh_traefik_log_path }}
+maxretry = {{ fail2ban_traefik_maxretry }}
+bantime = {{ fail2ban_traefik_bantime }}
+findtime = {{ fail2ban_traefik_findtime }}
+
+[traefik-botsearch]
+enabled = true
+port = 80,443
+filter = traefik-botsearch
+logpath = {{ wazuh_traefik_log_path }}
+maxretry = 10
+bantime = 86400
+findtime = 300
+
+[traefik-pathscan]
+enabled = true
+port = 80,443
+filter = traefik-pathscan
+logpath = {{ wazuh_traefik_log_path }}
+maxretry = 15
+bantime = 3600
+findtime = 60

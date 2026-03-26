@@ -1,0 +1,142 @@
+---
+# Wazuh Integration for mash-nextgen
+#
+# Automatically deploys Wazuh agents, dashboards, fail2ban jails,
+# and active-response rules based on which services are enabled.
+
+# === Master Controls ===
+wazuh_integration_enabled: true
+wazuh_manager_address: "10.0.70.249"
+wazuh_manager_port: 1514
+wazuh_agent_version: "4.14.3"
+
+# Auto-enable dashboards/fail2ban for all enabled services
+wazuh_dashboards_auto: true
+wazuh_fail2ban_auto: true
+wazuh_active_response_enabled: true
+
+# Wazuh Dashboard API (for dashboard deployment)
+wazuh_dashboard_api_url: "https://{{ wazuh_manager_address }}:443"
+wazuh_dashboard_api_user: "admin"
+wazuh_dashboard_api_password: ""  # Set in vault
+
+# === Service Detection ===
+# These are auto-detected from upstream MASH/MDAD vars when wazuh_dashboards_auto is true
+# Override individually if needed
+
+# Matrix Synapse
+wazuh_service_synapse: "{{ matrix_homeserver_implementation | default('') == 'synapse' }}"
+wazuh_dashboard_synapse: "{{ wazuh_dashboards_auto and wazuh_service_synapse }}"
+wazuh_fail2ban_synapse: "{{ wazuh_fail2ban_auto and wazuh_service_synapse }}"
+wazuh_synapse_log_path: "/matrix/synapse/run/homeserver.log"
+
+# Matrix Bridges
+wazuh_service_bridges: "{{ (matrix_mautrix_discord_enabled | default(false)) or (matrix_mautrix_telegram_enabled | default(false)) or (matrix_mautrix_whatsapp_enabled | default(false)) }}"
+wazuh_dashboard_bridges: "{{ wazuh_dashboards_auto and wazuh_service_bridges }}"
+
+# Authentik
+wazuh_service_authentik: "{{ authentik_enabled | default(false) }}"
+wazuh_dashboard_authentik: "{{ wazuh_dashboards_auto and wazuh_service_authentik }}"
+wazuh_fail2ban_authentik: "{{ wazuh_fail2ban_auto and wazuh_service_authentik }}"
+
+# WordPress
+wazuh_service_wordpress: "{{ wordpress_enabled | default(false) }}"
+wazuh_dashboard_wordpress: "{{ wazuh_dashboards_auto and wazuh_service_wordpress }}"
+wazuh_fail2ban_wordpress: "{{ wazuh_fail2ban_auto and wazuh_service_wordpress }}"
+
+# Jitsi
+wazuh_service_jitsi: "{{ jitsi_enabled | default(false) }}"
+wazuh_dashboard_jitsi: "{{ wazuh_dashboards_auto and wazuh_service_jitsi }}"
+
+# OpenCTI
+wazuh_service_opencti: "{{ opencti_enabled | default(false) }}"
+wazuh_dashboard_opencti: "{{ wazuh_dashboards_auto and wazuh_service_opencti }}"
+
+# Docker Registry
+wazuh_service_registry: "{{ registry_enabled | default(false) }}"
+wazuh_dashboard_registry: "{{ wazuh_dashboards_auto and wazuh_service_registry }}"
+
+# SearXNG
+wazuh_service_searxng: "{{ searxng_enabled | default(false) }}"
+wazuh_dashboard_searxng: "{{ wazuh_dashboards_auto and wazuh_service_searxng }}"
+
+# Uptime Kuma
+wazuh_service_uptime_kuma: "{{ uptime_kuma_enabled | default(false) }}"
+wazuh_dashboard_uptime_kuma: "{{ wazuh_dashboards_auto and wazuh_service_uptime_kuma }}"
+
+# Traefik (always enabled in Swarm mode)
+wazuh_service_traefik: true
+wazuh_dashboard_traefik: "{{ wazuh_dashboards_auto }}"
+wazuh_fail2ban_traefik: "{{ wazuh_fail2ban_auto }}"
+wazuh_traefik_log_path: "/opt/traefik/access.log"
+
+# PostgreSQL
+wazuh_service_postgresql: "{{ postgres_enabled | default(false) }}"
+wazuh_dashboard_postgresql: "{{ wazuh_dashboards_auto and wazuh_service_postgresql }}"
+
+# Docker Swarm (always enabled)
+wazuh_dashboard_docker_swarm: "{{ wazuh_dashboards_auto }}"
+wazuh_dashboard_infrastructure: "{{ wazuh_dashboards_auto }}"
+
+# SEO / Marketing (enabled when web services are present)
+wazuh_dashboard_seo: "{{ wazuh_dashboards_auto and (wazuh_service_wordpress or wazuh_service_synapse) }}"
+
+# Compliance (always enabled)
+wazuh_dashboard_compliance: "{{ wazuh_dashboards_auto }}"
+
+# === Fail2ban Settings ===
+fail2ban_default_bantime: 3600
+fail2ban_default_findtime: 600
+fail2ban_default_maxretry: 5
+
+# Per-service overrides
+fail2ban_synapse_maxretry: 5
+fail2ban_synapse_bantime: 3600
+fail2ban_synapse_findtime: 300
+
+fail2ban_authentik_maxretry: 5
+fail2ban_authentik_bantime: 7200
+fail2ban_authentik_findtime: 300
+
+fail2ban_wordpress_maxretry: 3
+fail2ban_wordpress_bantime: 86400
+fail2ban_wordpress_findtime: 600
+
+fail2ban_traefik_maxretry: 20
+fail2ban_traefik_bantime: 3600
+fail2ban_traefik_findtime: 60
+
+fail2ban_ssh_maxretry: 3
+fail2ban_ssh_bantime: 3600
+fail2ban_ssh_findtime: 600
+
+# === Active Response ===
+active_response_ssh_brute_force:
+  command: "firewall-drop"
+  location: "local"
+  rules_id: "5763"
+  timeout: 1800
+
+active_response_web_brute_force:
+  command: "firewall-drop"
+  location: "local"
+  rules_id: "31151,31152,31153"
+  timeout: 3600
+
+active_response_synapse_brute_force:
+  command: "firewall-drop"
+  location: "local"
+  rules_id: "100100"
+  timeout: 3600
+
+active_response_wordpress_xmlrpc:
+  command: "firewall-drop"
+  location: "local"
+  rules_id: "100200"
+  timeout: 86400
+
+active_response_docker_crash_loop:
+  command: "docker-restart"
+  location: "local"
+  rules_id: "100300"
+  timeout: 600

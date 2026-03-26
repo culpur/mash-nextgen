@@ -1,0 +1,1 @@
+{"type":"dashboard","id":"mash-nextgen-wordpress","attributes":{"title":"mash-nextgen: wordpress","description":"Auto-deployed by mash-nextgen Ansible playbook. Service: wordpress","version":1},"references":[]}
