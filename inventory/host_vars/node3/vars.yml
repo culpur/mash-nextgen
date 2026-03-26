@@ -1,0 +1,13 @@
+---
+# Node 3 — Swarm Worker (Web + Media or Services node)
+#
+# 3-node: web apps + auth + monitoring
+# 4-node: web apps + media (Jitsi, Jellyfin, Immich)
+
+swarm_advertise_interface: "{{ ansible_host }}"
+
+swarm_node_labels:
+  role: web
+  secondary_role: media
+  storage: ssd
+  tier: content

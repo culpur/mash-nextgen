@@ -1,13 +1,13 @@
 ---
-# Node 1 — Swarm Manager
-# This is the primary node running stateful services
+# Node 1 — Swarm Manager (all topologies)
+#
+# Always hosts: PostgreSQL, Valkey/Redis, Synapse main, Portainer
+# Also hosts Element, Synapse Admin, Element Admin, Etherpad
+# NFS server for shared media storage
 
 swarm_advertise_interface: "{{ ansible_host }}"
 
 swarm_node_labels:
   role: manager
   storage: ssd
-  services: core
-
-# NFS: this node is the NFS server
-# Exports are defined in shared-storage defaults
+  tier: core

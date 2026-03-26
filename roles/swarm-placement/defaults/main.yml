@@ -4,49 +4,205 @@
 # These labels are applied to Swarm nodes and used in deploy.placement.constraints
 # to control which node a service runs on.
 #
-# Services reference these via:
-#   deploy:
-#     placement:
-#       constraints:
-#         - node.labels.role == manager
-#         - node.labels.storage == ssd
+# Supports 2, 3, 4, and 5+ node topologies.
+# See docs/scaling.md for detailed placement diagrams.
 
 # Labels applied per host (override in host_vars)
+# Supported role values: manager, worker, matrix, media, web, auth, monitoring, storage
+# Nodes can have multiple roles via secondary_role
 swarm_node_labels:
-  role: "worker"  # 'manager' or 'worker'
-  storage: "hdd"  # 'ssd' or 'hdd' — affects stateful service placement
+  role: "worker"
+  storage: "hdd"        # 'ssd' or 'hdd'
+  tier: "general"       # 'core', 'communication', 'content', 'operations', 'general'
+  # secondary_role: ""  # Optional second role for combined nodes
 
-# Predefined placement rules for common services
-# Used by service roles to set constraints automatically
+# =====================================================================
+# Placement Rules
+#
+# These rules are used by swarm-service-wrapper to inject deploy.placement
+# into converted compose files.
+#
+# For 2-node: services use role=manager vs role=worker
+# For 3-node: matrix role absorbs bridges/workers from worker
+# For 4-node: auth/monitoring split from web/media
+# For 5+:    full separation per docs/scaling.md
+#
+# The constraints use OR logic via multiple constraint options when a
+# service can run on multiple role types. Workers and bridges fall back
+# to 'worker' OR 'matrix' labels, so they work on both 2-node and 3+ setups.
+# =====================================================================
+
 swarm_placement_rules:
-  # Stateful services — pin to manager (stable storage)
+  # --- Stateful: ALWAYS pinned to manager ---
   postgresql:
     constraints:
       - "node.labels.role == manager"
+    resources:
+      limits:
+        memory: "4G"
+
   valkey:
     constraints:
       - "node.labels.role == manager"
+    resources:
+      limits:
+        memory: "1G"
 
-  # Core services — pin to manager
+  redis:
+    constraints:
+      - "node.labels.role == manager"
+
+  keydb:
+    constraints:
+      - "node.labels.role == manager"
+
+  mariadb:
+    constraints:
+      - "node.labels.role == manager"
+
+  # --- Core Matrix: pinned to manager ---
   synapse_main:
     constraints:
       - "node.labels.role == manager"
 
-  # Workers — prefer worker nodes, fallback to any
+  # --- Synapse workers: spread across matrix/worker nodes ---
   synapse_workers:
     constraints: []
     preferences:
       - spread: "node.id"
 
-  # Bridges — prefer worker nodes
+  # --- Bridges: prefer matrix or worker nodes ---
+  # On 2-node: runs on worker
+  # On 3-node: runs on matrix node
+  # On 4+: runs on matrix node
   bridges:
     constraints:
-      - "node.labels.role == worker"
+      - "node.labels.role != manager"
+    preferences:
+      - spread: "node.id"
 
-  # Traefik — global mode (runs on all nodes)
+  # --- Bots: same as bridges ---
+  bots:
+    constraints:
+      - "node.labels.role != manager"
+
+  # --- Media: prefer media or worker nodes ---
+  # Jitsi, LiveKit, Coturn, Jellyfin, Immich, PeerTube, Owncast
+  media:
+    constraints:
+      - "node.labels.role != manager"
+    resources:
+      limits:
+        memory: "2G"
+
+  # --- Web apps: prefer web or worker nodes ---
+  # WordPress, Nextcloud, Forgejo, GoToSocial, Outline, etc.
+  web:
+    constraints: []
+    preferences:
+      - spread: "node.id"
+
+  # --- Auth: prefer auth or worker nodes ---
+  # Authentik, Keycloak, LLDAP, OAuth2-Proxy
+  auth:
+    constraints: []
+
+  # --- Monitoring: prefer monitoring or worker nodes ---
+  # Prometheus, Grafana, Uptime Kuma, Healthchecks
+  monitoring:
+    constraints: []
+
+  # --- Search: any node ---
+  search:
+    constraints: []
+
+  # --- Traefik: global (one per node) ---
   traefik:
     mode: global
 
-  # Any node
+  # --- Wazuh Agent: global (one per node) ---
+  wazuh_agent:
+    mode: global
+
+  # --- Default (anything not categorized) ---
   default:
     constraints: []
+    preferences:
+      - spread: "node.id"
+
+# =====================================================================
+# Topology Presets
+#
+# Set swarm_topology to use a preset that adjusts placement rules
+# for your node count. Or leave as 'custom' and set labels manually.
+# =====================================================================
+
+# Options: '2-node', '3-node', '4-node', 'custom'
+swarm_topology: "custom"
+
+# Topology-specific overrides (applied on top of base rules)
+swarm_topology_presets:
+  "2-node":
+    description: "Manager + Worker. Stateful pinned to manager, everything else on worker."
+    node_labels:
+      node1: { role: manager, storage: ssd }
+      node2: { role: worker, storage: ssd }
+
+  "3-node":
+    description: "Manager + Matrix + Services. Bridges/workers on dedicated matrix node."
+    node_labels:
+      node1: { role: manager, storage: ssd, tier: core }
+      node2: { role: matrix, storage: ssd, tier: communication }
+      node3: { role: web, secondary_role: auth, storage: ssd, tier: content }
+    placement_overrides:
+      bridges:
+        constraints:
+          - "node.labels.role == matrix"
+      bots:
+        constraints:
+          - "node.labels.role == matrix"
+      synapse_workers:
+        constraints:
+          - "node.labels.role == matrix"
+      media:
+        constraints:
+          - "node.labels.role == matrix"
+      auth:
+        constraints:
+          - "node.labels.role == web"
+      monitoring:
+        constraints:
+          - "node.labels.role == web"
+
+  "4-node":
+    description: "Manager + Matrix + Web/Media + Operations. Full separation."
+    node_labels:
+      node1: { role: manager, storage: ssd, tier: core }
+      node2: { role: matrix, storage: ssd, tier: communication }
+      node3: { role: web, secondary_role: media, storage: ssd, tier: content }
+      node4: { role: auth, secondary_role: monitoring, storage: ssd, tier: operations }
+    placement_overrides:
+      bridges:
+        constraints:
+          - "node.labels.role == matrix"
+      bots:
+        constraints:
+          - "node.labels.role == matrix"
+      synapse_workers:
+        constraints:
+          - "node.labels.role == matrix"
+      media:
+        constraints:
+          - "node.labels.tier == content"
+      web:
+        constraints:
+          - "node.labels.tier == content"
+      auth:
+        constraints:
+          - "node.labels.tier == operations"
+      monitoring:
+        constraints:
+          - "node.labels.tier == operations"
+      search:
+        constraints:
+          - "node.labels.tier == operations"

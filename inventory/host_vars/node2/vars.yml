@@ -1,10 +1,14 @@
 ---
 # Node 2 — Swarm Worker
-# Runs bridges, Jitsi, bots, and other distributed services
+#
+# 2-node: everything except stateful services (bridges, bots, Jitsi, auth, web)
+# 3-node: Matrix-dedicated (bridges, bots, Synapse workers, Jitsi, LiveKit)
+# 4-node: Matrix-dedicated (bridges, bots, Synapse workers)
 
 swarm_advertise_interface: "{{ ansible_host }}"
 
 swarm_node_labels:
-  role: worker
+  role: worker       # 2-node: generic worker
+  # role: matrix     # 3-node or 4-node: uncomment for dedicated Matrix node
   storage: ssd
-  services: distributed
+  tier: communication

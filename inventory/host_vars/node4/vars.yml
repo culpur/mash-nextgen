@@ -1,0 +1,12 @@
+---
+# Node 4 — Swarm Worker (Operations node)
+#
+# 4-node: auth (Authentik) + monitoring (Prometheus, Grafana) + search + utilities
+
+swarm_advertise_interface: "{{ ansible_host }}"
+
+swarm_node_labels:
+  role: auth
+  secondary_role: monitoring
+  storage: ssd
+  tier: operations

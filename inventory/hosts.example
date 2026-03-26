@@ -1,5 +1,13 @@
 # mash-nextgen inventory
-# Copy this to 'hosts' and configure for your environment
+#
+# Copy this to 'hosts' and uncomment the topology that matches your setup.
+# See docs/scaling.md for detailed service distribution per topology.
+
+# =====================================================================
+# 2-Node Setup (Minimum)
+# =====================================================================
+# Manager handles stateful services (PostgreSQL, Synapse, Redis)
+# Worker handles bridges, bots, Jitsi, Authentik, web apps
 
 [swarm_managers]
 node1 ansible_host=10.0.70.6 ansible_user=root
@@ -7,18 +15,49 @@ node1 ansible_host=10.0.70.6 ansible_user=root
 [swarm_workers]
 node2 ansible_host=10.0.70.7 ansible_user=root
 
+# =====================================================================
+# 3-Node Setup (Recommended) — uncomment and adjust IPs
+# =====================================================================
+# Manager: stateful + core UI (Element, Portainer, Synapse Admin)
+# Matrix:  all Synapse workers, bridges, bots, Jitsi, LiveKit
+# Services: web apps (WordPress, Nextcloud), auth (Authentik), monitoring
+
+# [swarm_managers]
+# node1 ansible_host=10.0.70.6 ansible_user=root
+
+# [swarm_workers]
+# node2 ansible_host=10.0.70.7 ansible_user=root
+# node3 ansible_host=10.0.70.8 ansible_user=root
+
+# =====================================================================
+# 4-Node Setup (Production) — uncomment and adjust IPs
+# =====================================================================
+# Manager:    stateful + core UI
+# Matrix:     Synapse workers, bridges, bots
+# Web/Media:  WordPress, Nextcloud, Jitsi, Jellyfin, Immich
+# Operations: Authentik, Prometheus, Grafana, SearXNG, Registry
+
+# [swarm_managers]
+# node1 ansible_host=10.0.70.6 ansible_user=root
+
+# [swarm_workers]
+# node2 ansible_host=10.0.70.7 ansible_user=root
+# node3 ansible_host=10.0.70.8 ansible_user=root
+# node4 ansible_host=10.0.70.9 ansible_user=root
+
+# =====================================================================
+# Common Groups (don't change)
+# =====================================================================
+
 [swarm:children]
 swarm_managers
 swarm_workers
 
-# All hosts that run Docker services
 [docker_hosts:children]
 swarm
 
-# NFS server for shared storage (typically the manager)
 [nfs_server]
 node1
 
-# NFS clients
-[nfs_clients]
-node2
+[nfs_clients:children]
+swarm_workers
