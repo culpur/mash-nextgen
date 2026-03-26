@@ -1,4 +1,5 @@
 <!-- Managed by mash-nextgen — WordPress log decoder (via Traefik access logs) -->
+<decoder_list>
 <decoder name="wordpress">
   <prematch>wp-login|xmlrpc|wp-admin|wp-json</prematch>
 </decoder>
@@ -26,3 +27,4 @@
   <regex>(\S+) .+ "(GET|POST|PUT|DELETE) .*/wp-json/</regex>
   <order>srcip</order>
 </decoder>
+</decoder_list>

@@ -1,4 +1,5 @@
 <!-- Managed by mash-nextgen — Docker Swarm event decoder -->
+<decoder_list>
 <decoder name="docker-swarm">
   <prematch>docker|container|swarm</prematch>
 </decoder>
@@ -14,3 +15,4 @@
   <regex>health_status: (\S+) for container (\S+)</regex>
   <order>status, extra_data</order>
 </decoder>
+</decoder_list>

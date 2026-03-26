@@ -1,4 +1,5 @@
 <!-- Managed by mash-nextgen — Traefik access log decoder (JSON format) -->
+<decoder_list>
 <decoder name="traefik-access">
   <prematch>traefik|"entryPointName"</prematch>
 </decoder>
@@ -7,3 +8,4 @@
   <parent>traefik-access</parent>
   <plugin_decoder>JSON_Decoder</plugin_decoder>
 </decoder>
+</decoder_list>
