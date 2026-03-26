@@ -1,0 +1,61 @@
+{# Generates a deploy: section for a single service based on its placement category.
+   Input variables:
+     _deploy_mode        — "replicated" or "global"
+     _deploy_replicas    — integer replica count (ignored when global)
+     _deploy_constraints — list of placement constraint strings
+     _deploy_preferences — list of placement preference dicts (e.g. [{spread: "node.id"}])
+     _deploy_resources   — dict with limits/reservations (optional)
+     _deploy_restart     — restart policy dict (optional)
+#}
+deploy:
+{% if _deploy_mode == 'global' %}
+  mode: global
+{% else %}
+  mode: replicated
+  replicas: {{ _deploy_replicas | default(1) }}
+{% endif %}
+{% if _deploy_constraints | default([]) | length > 0 or _deploy_preferences | default([]) | length > 0 %}
+  placement:
+{% if _deploy_constraints | default([]) | length > 0 %}
+    constraints:
+{% for constraint in _deploy_constraints %}
+      - "{{ constraint }}"
+{% endfor %}
+{% endif %}
+{% if _deploy_preferences | default([]) | length > 0 %}
+    preferences:
+{% for pref in _deploy_preferences %}
+{% for key, value in pref.items() %}
+      - {{ key }}: "{{ value }}"
+{% endfor %}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% if _deploy_restart is defined and _deploy_restart %}
+  restart_policy:
+    condition: {{ _deploy_restart.condition | default('any') }}
+{% if _deploy_restart.delay is defined %}
+    delay: {{ _deploy_restart.delay }}
+{% endif %}
+{% if _deploy_restart.max_attempts is defined and _deploy_restart.max_attempts | int > 0 %}
+    max_attempts: {{ _deploy_restart.max_attempts }}
+{% endif %}
+{% if _deploy_restart.window is defined %}
+    window: {{ _deploy_restart.window }}
+{% endif %}
+{% endif %}
+{% if _deploy_resources is defined and _deploy_resources %}
+  resources:
+{% if _deploy_resources.limits is defined %}
+    limits:
+{% for key, value in _deploy_resources.limits.items() %}
+      {{ key }}: {{ value }}
+{% endfor %}
+{% endif %}
+{% if _deploy_resources.reservations is defined %}
+    reservations:
+{% for key, value in _deploy_resources.reservations.items() %}
+      {{ key }}: {{ value }}
+{% endfor %}
+{% endif %}
+{% endif %}

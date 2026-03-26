@@ -1,0 +1,58 @@
+---
+# Swarm Service Wrapper — Main task
+#
+# Reads docker-compose files produced by upstream MDAD/MASH roles, injects
+# Swarm deploy: sections based on service category, and writes stack-ready
+# files for `docker stack deploy`.
+
+- name: Ensure output directory exists
+  ansible.builtin.file:
+    path: "{{ swarm_wrapper_stack_output_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Discover compose files to process
+  ansible.builtin.find:
+    paths: "{{ swarm_wrapper_compose_input_dir }}"
+    patterns: "*.yml,*.yaml"
+    recurse: false
+  register: _swarm_wrapper_discovered_files
+  when: swarm_wrapper_compose_files | length == 0
+
+- name: Set compose file list from discovery
+  ansible.builtin.set_fact:
+    _swarm_wrapper_files_to_process: >-
+      {{ _swarm_wrapper_discovered_files.files | map(attribute='path') | list }}
+  when: swarm_wrapper_compose_files | length == 0
+
+- name: Set compose file list from explicit config
+  ansible.builtin.set_fact:
+    _swarm_wrapper_files_to_process: "{{ swarm_wrapper_compose_files }}"
+  when: swarm_wrapper_compose_files | length > 0
+
+- name: Build service-to-category lookup
+  ansible.builtin.set_fact:
+    _swarm_service_category_map: >-
+      {{
+        _swarm_service_category_map | default({}) | combine(
+          dict(
+            item.value.services | map('community.general.dict_kv', 'service')
+            | map(attribute='service')
+            | zip(item.value.services | map('regex_replace', '.*', item.key))
+          )
+        )
+      }}
+  loop: "{{ swarm_placement_categories | dict2items }}"
+  loop_control:
+    label: "{{ item.key }} ({{ item.value.services | length }} services)"
+
+- name: Display discovered compose files
+  ansible.builtin.debug:
+    msg: "Will process {{ _swarm_wrapper_files_to_process | length }} compose file(s)"
+
+- name: Convert each compose file to a Swarm stack
+  ansible.builtin.include_tasks: convert-compose.yml
+  loop: "{{ _swarm_wrapper_files_to_process }}"
+  loop_control:
+    loop_var: _compose_file_path
+    label: "{{ _compose_file_path | basename }}"

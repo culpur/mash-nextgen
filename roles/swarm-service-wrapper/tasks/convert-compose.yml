@@ -1,0 +1,146 @@
+---
+# Swarm Service Wrapper — Single compose file conversion
+#
+# Converts one docker-compose.yml to a Swarm-compatible stack file by:
+#   1. Reading and parsing the original compose file
+#   2. Removing `container_name:` (unsupported in Swarm mode)
+#   3. Converting `restart:` to `deploy.restart_policy:`
+#   4. Injecting `deploy:` sections with placement rules per service category
+#   5. Writing the result to the stack output directory
+
+- name: "Read compose file: {{ _compose_file_path | basename }}"
+  ansible.builtin.slurp:
+    src: "{{ _compose_file_path }}"
+  register: _compose_raw
+
+- name: "Parse compose file: {{ _compose_file_path | basename }}"
+  ansible.builtin.set_fact:
+    _compose_data: "{{ _compose_raw.content | b64decode | from_yaml }}"
+
+- name: "Resolve placement for each service in {{ _compose_file_path | basename }}"
+  ansible.builtin.set_fact:
+    _converted_services: "{{ _converted_services | default({}) | combine({item.key: _patched_service}) }}"
+  vars:
+    # Determine which category this service belongs to
+    _matched_category: >-
+      {{ _swarm_service_category_map[item.key] | default('_default') }}
+    _category_config: >-
+      {{
+        swarm_placement_categories[_matched_category]
+        | default(swarm_placement_default)
+      }}
+
+    # Per-service overrides take precedence over category
+    _override: "{{ swarm_service_overrides[item.key] | default({}) }}"
+
+    # Resolve final deploy parameters
+    _final_mode: "{{ _override.mode | default(_category_config.mode) | default('replicated') }}"
+    _final_replicas: "{{ _override.replicas | default(_category_config.replicas) | default(swarm_wrapper_default_replicas) }}"
+    _final_constraints: "{{ _override.constraints | default(_category_config.constraints) | default([]) }}"
+    _final_preferences: "{{ _override.preferences | default(_category_config.preferences) | default([]) }}"
+
+    # Resources: override > category > default (only if injection enabled)
+    _final_resources: >-
+      {{
+        _override.resources
+        | default(_category_config.resources | default(
+            swarm_wrapper_default_resources if swarm_wrapper_inject_resources else {}
+          ))
+      }}
+
+    # Convert restart: directive to restart_policy if present
+    _original_restart: "{{ item.value.restart | default('') }}"
+    _restart_condition_map:
+      "always": "any"
+      "unless-stopped": "any"
+      "on-failure": "on-failure"
+      "no": "none"
+      "": ""
+    _converted_restart_condition: >-
+      {{ _restart_condition_map[_original_restart] | default('any') }}
+    _final_restart_policy: >-
+      {{
+        swarm_wrapper_default_restart_policy
+        | combine({'condition': _converted_restart_condition})
+        if (swarm_wrapper_convert_restart_policy and _original_restart != '')
+        else swarm_wrapper_default_restart_policy
+      }}
+
+    # Build the deploy section
+    _deploy_section:
+      mode: "{{ _final_mode }}"
+      replicas: "{{ _final_replicas | int if _final_mode != 'global' else omit }}"
+      placement: >-
+        {{
+          (
+            ({'constraints': _final_constraints} if _final_constraints | length > 0 else {})
+            | combine(
+                {'preferences': _final_preferences} if _final_preferences | length > 0 else {}
+              )
+          ) or omit
+        }}
+      restart_policy: "{{ _final_restart_policy }}"
+      resources: "{{ _final_resources if _final_resources else omit }}"
+
+    # Build patched service: merge deploy, strip container_name and restart
+    _service_without_container_name: >-
+      {{
+        item.value | dict2items
+        | rejectattr('key', 'equalto', 'container_name')
+        | list
+        | items2dict
+        if swarm_wrapper_strip_container_name
+        else item.value
+      }}
+    _service_without_restart: >-
+      {{
+        _service_without_container_name | dict2items
+        | rejectattr('key', 'equalto', 'restart')
+        | list
+        | items2dict
+        if swarm_wrapper_convert_restart_policy
+        else _service_without_container_name
+      }}
+    _patched_service: >-
+      {{
+        _service_without_restart
+        | combine({'deploy': _deploy_section})
+      }}
+  loop: "{{ (_compose_data.services | default({})) | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: "Build final stack document for {{ _compose_file_path | basename }}"
+  ansible.builtin.set_fact:
+    _final_stack: >-
+      {{
+        _compose_data
+        | combine({
+            'version': swarm_wrapper_compose_version,
+            'services': _converted_services
+          })
+      }}
+
+- name: "Write stack file: {{ _compose_file_path | basename }}"
+  ansible.builtin.copy:
+    content: |
+      # Managed by mash-nextgen swarm-service-wrapper role
+      # Source: {{ _compose_file_path }}
+      # Generated: {{ ansible_date_time.iso8601 }}
+      #
+      # Do not edit — this file is regenerated on each playbook run.
+
+      {{ _final_stack | to_nice_yaml(indent=2, sort_keys=false) }}
+    dest: "{{ swarm_wrapper_stack_output_dir }}/{{ _compose_file_path | basename | regex_replace('docker-compose', 'stack') }}"
+    mode: '0644'
+
+- name: "Reset per-file state"
+  ansible.builtin.set_fact:
+    _converted_services: {}
+
+- name: "Report conversion: {{ _compose_file_path | basename }}"
+  ansible.builtin.debug:
+    msg: >-
+      Converted {{ _compose_file_path | basename }}
+      ({{ _final_stack.services | length }} services)
+      -> {{ swarm_wrapper_stack_output_dir }}/{{ _compose_file_path | basename | regex_replace('docker-compose', 'stack') }}

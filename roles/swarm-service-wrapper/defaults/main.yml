@@ -1,0 +1,291 @@
+---
+# Swarm Service Wrapper — Default placement rules
+#
+# Maps upstream MDAD/MASH service names to Docker Swarm deploy configurations.
+# Each category defines placement constraints, preferences, and resource hints
+# that get injected into compose files before `docker stack deploy`.
+#
+# Override per-environment in group_vars or host_vars. Service-specific overrides
+# can be added to swarm_service_overrides (see bottom of file).
+
+# Base directory where upstream roles write their docker-compose output
+swarm_wrapper_compose_input_dir: "/opt/mash/compose"
+
+# Directory for Swarm-ready stack files
+swarm_wrapper_stack_output_dir: "/opt/mash/stacks"
+
+# Compose file version for stack output
+swarm_wrapper_compose_version: "3.8"
+
+# Default restart policy applied when converting `restart:` directives
+swarm_wrapper_default_restart_policy:
+  condition: any
+  delay: 5s
+  max_attempts: 0  # unlimited
+  window: 120s
+
+# Default replicas for replicated services
+swarm_wrapper_default_replicas: 1
+
+# Default resource limits (can be overridden per category or per service)
+swarm_wrapper_default_resources:
+  limits:
+    memory: "512M"
+  reservations:
+    memory: "128M"
+
+# ---------------------------------------------------------------------------
+# Placement rules by service category
+#
+# Each category defines:
+#   mode:         "replicated" (default) or "global"
+#   replicas:     number of replicas (ignored for global mode)
+#   constraints:  list of Swarm placement constraints
+#   preferences:  list of Swarm placement preferences (spread strategies)
+#   resources:    optional resource overrides (limits/reservations)
+# ---------------------------------------------------------------------------
+swarm_placement_categories:
+
+  # --- Core services: pin to manager for stable storage and coordination ---
+  core:
+    mode: replicated
+    replicas: 1
+    constraints:
+      - "node.labels.role == manager"
+    preferences: []
+    services:
+      - synapse
+      - synapse-main
+      - postgres
+      - postgresql
+      - valkey
+
+  # --- Workers: spread across all available nodes ---
+  workers:
+    mode: replicated
+    replicas: 2
+    constraints: []
+    preferences:
+      - spread: "node.id"
+    services:
+      - synapse-generic-worker
+      - synapse-federation-sender
+      - synapse-media-repository
+      - synapse-pusher
+      - synapse-appservice
+      - synapse-user-dir
+      - synapse-background
+      - synapse-stream-writer
+      - synapse-event-persister
+
+  # --- Bridges: prefer worker nodes to keep manager load low ---
+  bridges:
+    mode: replicated
+    replicas: 1
+    constraints:
+      - "node.labels.role == worker"
+    preferences: []
+    services:
+      - mautrix-whatsapp
+      - mautrix-signal
+      - mautrix-telegram
+      - mautrix-discord
+      - mautrix-slack
+      - mautrix-gmessages
+      - mautrix-googlechat
+      - mautrix-meta
+      - mautrix-instagram
+      - mautrix-twitter
+      - mautrix-linkedin
+      - mautrix-imessage
+      - mautrix-wsproxy
+      - mx-puppet-slack
+      - mx-puppet-discord
+      - mx-puppet-instagram
+      - mx-puppet-groupme
+      - heisenbridge
+      - hookshot
+      - matrix-appservice-irc
+      - matrix-appservice-discord
+
+  # --- Bots: prefer worker nodes ---
+  bots:
+    mode: replicated
+    replicas: 1
+    constraints:
+      - "node.labels.role == worker"
+    preferences: []
+    services:
+      - mjolnir
+      - draupnir
+      - honoroit
+      - reminder-bot
+      - maubot
+      - buscarron
+      - matrix-registration-bot
+      - matrix-alertmanager-receiver
+      - matrix-hookshot
+      - go-neb
+
+  # --- Media services: prefer worker nodes (CPU/bandwidth intensive) ---
+  media:
+    mode: replicated
+    replicas: 1
+    constraints:
+      - "node.labels.role == worker"
+    preferences: []
+    resources:
+      limits:
+        memory: "1G"
+      reservations:
+        memory: "256M"
+    services:
+      - jitsi-web
+      - jitsi-jicofo
+      - jitsi-jvb
+      - jitsi-prosody
+      - livekit
+      - livekit-server
+      - livekit-jwt-service
+      - coturn
+      - element-call
+
+  # --- Web applications: run on any node ---
+  web:
+    mode: replicated
+    replicas: 1
+    constraints: []
+    preferences: []
+    services:
+      - element-web
+      - cinny
+      - schildichat-web
+      - hydrogen
+      - wordpress
+      - nextcloud
+      - vaultwarden
+      - gitea
+      - firezone
+      - lago
+      - ntfy
+      - linkding
+      - miniflux
+      - focalboard
+      - etherpad
+      - hedgedoc
+      - planka
+      - peertube
+      - funkwhale
+      - gotosocial
+
+  # --- Auth providers: run on any node ---
+  auth:
+    mode: replicated
+    replicas: 1
+    constraints: []
+    preferences: []
+    services:
+      - authentik-server
+      - authentik-worker
+      - keycloak
+      - ma1sd
+      - matrix-authentication-service
+
+  # --- Monitoring: run on any node ---
+  monitoring:
+    mode: replicated
+    replicas: 1
+    constraints: []
+    preferences: []
+    services:
+      - prometheus
+      - grafana
+      - uptime-kuma
+      - node-exporter
+      - cadvisor
+      - loki
+      - promtail
+      - alertmanager
+      - matrix-prometheus-exporter
+
+  # --- Database services: pin to manager for persistent storage ---
+  database:
+    mode: replicated
+    replicas: 1
+    constraints:
+      - "node.labels.role == manager"
+    preferences: []
+    resources:
+      limits:
+        memory: "2G"
+      reservations:
+        memory: "512M"
+    services:
+      - mariadb
+      - clickhouse
+      - influxdb
+      - timescaledb
+
+  # --- Cache services: pin to manager (low-latency access to DB) ---
+  cache:
+    mode: replicated
+    replicas: 1
+    constraints:
+      - "node.labels.role == manager"
+    preferences: []
+    resources:
+      limits:
+        memory: "1G"
+      reservations:
+        memory: "256M"
+    services:
+      - keydb
+      - memcached
+      - redis
+      - dragonfly
+
+  # --- Global services: one instance per node ---
+  global:
+    mode: global
+    constraints: []
+    preferences: []
+    services:
+      - traefik
+      - traefik-certs-dumper
+
+# Fallback category for services not matched by any category above.
+# Uses no constraints (can land on any node).
+swarm_placement_default:
+  mode: replicated
+  replicas: 1
+  constraints: []
+  preferences: []
+
+# ---------------------------------------------------------------------------
+# Per-service overrides
+#
+# Override any deploy parameter for a specific service name. These take
+# precedence over category-level settings.
+#
+# Example:
+#   swarm_service_overrides:
+#     jitsi-jvb:
+#       replicas: 3
+#       resources:
+#         limits:
+#           memory: "4G"
+# ---------------------------------------------------------------------------
+swarm_service_overrides: {}
+
+# List of compose files to process. When empty, all *.yml files in the
+# input directory are processed automatically.
+swarm_wrapper_compose_files: []
+
+# Whether to remove `container_name` directives (required for Swarm)
+swarm_wrapper_strip_container_name: true
+
+# Whether to convert `restart:` to `deploy.restart_policy:`
+swarm_wrapper_convert_restart_policy: true
+
+# Whether to inject resource limits from category/override definitions
+swarm_wrapper_inject_resources: false
