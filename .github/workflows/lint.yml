@@ -1,0 +1,239 @@
+---
+# Lint and validate all Ansible, Jinja2, and Wazuh XML content on every push/PR.
+
+name: Lint & Validate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'roles/**'
+      - 'playbooks/**'
+      - 'inventory/**'
+      - 'ansible.cfg'
+      - '.github/workflows/lint.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'roles/**'
+      - 'playbooks/**'
+      - 'inventory/**'
+      - 'ansible.cfg'
+      - '.github/workflows/lint.yml'
+
+jobs:
+  ansible-lint:
+    name: Ansible Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install ansible-core ansible-lint yamllint
+
+      - name: Run yamllint on project YAML
+        run: |
+          yamllint -d '{
+            extends: default,
+            rules: {
+              line-length: {max: 200},
+              truthy: {allowed-values: ["true", "false", "yes", "no"]},
+              comments-indentation: disable,
+              document-start: disable
+            }
+          }' \
+            roles/*/defaults/*.yml \
+            roles/*/tasks/*.yml \
+            roles/*/handlers/*.yml \
+            playbooks/*.yml \
+            ansible.cfg || true
+          # Non-blocking for now — report only
+
+      - name: Run ansible-lint
+        run: |
+          # Create minimal ansible-lint config
+          cat > .ansible-lint <<'EOF'
+          ---
+          profile: moderate
+
+          exclude_paths:
+            - upstream/      # Don't lint upstream subtrees
+            - .github/
+            - collections/
+
+          skip_list:
+            - yaml[line-length]
+            - name[missing]
+            - no-changed-when
+            - command-instead-of-module
+
+          warn_list:
+            - experimental
+            - role-name
+
+          use_default_rules: true
+
+          kinds:
+            - playbook: "playbooks/*.yml"
+            - tasks: "roles/*/tasks/*.yml"
+            - vars: "roles/*/defaults/*.yml"
+            - handlers: "roles/*/handlers/*.yml"
+          EOF
+
+          ansible-lint --force-color --parseable \
+            roles/ playbooks/
+
+  jinja2-validate:
+    name: Jinja2 Template Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Jinja2
+        run: pip install jinja2
+
+      - name: Validate Jinja2 templates
+        run: |
+          EXIT_CODE=0
+
+          echo "=== Checking Jinja2 templates for syntax errors ==="
+
+          find roles/ -name '*.j2' -not -path '*/upstream/*' | sort | while read -r template; do
+            echo "  Checking: $template"
+            python3 -c "
+          import sys
+          from jinja2 import Environment, FileSystemLoader, TemplateSyntaxError, UndefinedError
+          import os
+
+          env = Environment(
+              loader=FileSystemLoader(os.path.dirname('$template') or '.'),
+              undefined=__import__('jinja2').Undefined,  # Allow undefined vars
+              extensions=['jinja2.ext.loopcontrols'],
+          )
+          try:
+              env.get_template(os.path.basename('$template'))
+          except TemplateSyntaxError as e:
+              print(f'  ERROR: {e.filename}:{e.lineno} - {e.message}', file=sys.stderr)
+              sys.exit(1)
+          " || EXIT_CODE=1
+          done
+
+          if [ "$EXIT_CODE" -ne 0 ]; then
+            echo ""
+            echo "::error::Jinja2 template validation failed"
+          else
+            echo ""
+            echo "All Jinja2 templates passed syntax validation."
+          fi
+
+          exit $EXIT_CODE
+
+  wazuh-xml-validate:
+    name: Wazuh XML Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install jinja2 lxml
+
+      - name: Validate Wazuh decoder and rule XML templates
+        run: |
+          EXIT_CODE=0
+
+          echo "=== Rendering and validating Wazuh XML templates ==="
+
+          # Render Jinja2 to raw XML, then validate XML well-formedness
+          for xml_j2 in roles/wazuh-integration/templates/wazuh-decoders/*.xml.j2 \
+                         roles/wazuh-integration/templates/wazuh-rules/*.xml.j2; do
+            [ -f "$xml_j2" ] || continue
+            BASENAME=$(basename "$xml_j2")
+            echo "  Checking: $BASENAME"
+
+            python3 << PYEOF
+          import sys
+          from jinja2 import Environment, FileSystemLoader, Undefined
+          from lxml import etree
+          import os
+
+          template_dir = os.path.dirname("$xml_j2")
+          template_name = os.path.basename("$xml_j2")
+
+          env = Environment(
+              loader=FileSystemLoader(template_dir),
+              undefined=Undefined,
+          )
+
+          # Step 1: Check Jinja2 syntax
+          try:
+              tmpl = env.get_template(template_name)
+          except Exception as e:
+              print(f"  JINJA2 ERROR in {template_name}: {e}", file=sys.stderr)
+              sys.exit(1)
+
+          # Step 2: Render with dummy values (all vars become empty strings)
+          try:
+              rendered = tmpl.render()
+          except Exception as e:
+              # Rendering may fail on required vars — that's OK for syntax check
+              print(f"  RENDER WARNING in {template_name}: {e} (non-fatal)")
+              sys.exit(0)
+
+          # Step 3: Validate XML well-formedness
+          try:
+              etree.fromstring(rendered.encode('utf-8'))
+          except etree.XMLSyntaxError as e:
+              print(f"  XML ERROR in {template_name}: {e}", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"  OK: {template_name}")
+          PYEOF
+
+            if [ $? -ne 0 ]; then
+              EXIT_CODE=1
+            fi
+          done
+
+          # Also check any non-template XML files
+          for xml_file in roles/wazuh-integration/files/**/*.xml 2>/dev/null; do
+            [ -f "$xml_file" ] || continue
+            echo "  Checking static XML: $(basename "$xml_file")"
+            python3 -c "
+          from lxml import etree
+          import sys
+          try:
+              etree.parse('$xml_file')
+          except etree.XMLSyntaxError as e:
+              print(f'  XML ERROR: {e}', file=sys.stderr)
+              sys.exit(1)
+          " || EXIT_CODE=1
+          done
+
+          if [ "$EXIT_CODE" -ne 0 ]; then
+            echo ""
+            echo "::error::Wazuh XML validation failed"
+          else
+            echo ""
+            echo "All Wazuh XML templates passed validation."
+          fi
+
+          exit $EXIT_CODE
