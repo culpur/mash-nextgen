@@ -1,131 +1,317 @@
 ---
 # Authentik SSO Integration for mash-nextgen
 #
-# Automatically configures OIDC/SAML providers in Authentik
-# and wires SSO into each enabled service.
+# Automatically configures OIDC/SAML/proxy providers in Authentik
+# for each enabled MASH + MDAD service.
 #
-# Requires: authentik_enabled: true in your vars.yml
+# Supports three auth patterns:
+#   1. OIDC — service has native OIDC support (best)
+#   2. Proxy — Traefik ForwardAuth via Authentik outpost (for services without OIDC)
+#   3. LDAP — service supports LDAP auth via Authentik LDAP outpost
+#
+# Requires: authentik_enabled: true
 
 authentik_sso_enabled: "{{ authentik_enabled | default(false) }}"
 authentik_base_url: "https://login.{{ domain }}"
+authentik_api_url: "{{ authentik_base_url }}/api/v3"
 authentik_api_token: ""  # Set in vault
-
-# Domain used for all services
 domain: "example.com"
 
-# === Per-Service SSO Configuration ===
-# Each service gets an OIDC application + provider in Authentik
-# Auto-enabled when the service is enabled
+# === MDAD Services — SSO Configuration ===
 
-# Proxmox
-authentik_sso_proxmox:
-  enabled: false  # Manual — Proxmox needs realm config
-  client_id: "proxmox"
-  provider_type: "oauth2"
-  redirect_uris: []
-
-# Matrix Synapse (via OIDC)
+# Matrix Synapse (OIDC)
 authentik_sso_synapse:
   enabled: "{{ matrix_homeserver_implementation | default('') == 'synapse' }}"
+  type: oauth2
   client_id: "matrix-synapse"
-  provider_type: "oauth2"
   redirect_uris:
     - "https://matrix.{{ domain }}/_synapse/client/oidc/callback"
   scopes: ["openid", "profile", "email"]
 
-# Element Web (delegates to Synapse OIDC)
-# No separate provider needed — Element uses Synapse's OIDC
+# Synapse Admin (proxy auth)
+authentik_sso_synapse_admin:
+  enabled: "{{ matrix_synapse_admin_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://admin.{{ domain }}"
 
-# WordPress (via OIDC plugin)
-authentik_sso_wordpress:
-  enabled: "{{ wordpress_enabled | default(false) }}"
-  client_id: "wordpress"
-  provider_type: "oauth2"
+# Element Admin (proxy auth)
+authentik_sso_element_admin:
+  enabled: "{{ matrix_element_admin_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://ea.{{ domain }}"
+
+# Etherpad (proxy auth)
+authentik_sso_etherpad:
+  enabled: "{{ etherpad_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://matrix.{{ domain }}/etherpad"
+
+# Grafana (OIDC)
+authentik_sso_grafana:
+  enabled: "{{ grafana_enabled | default(false) }}"
+  type: oauth2
+  client_id: "grafana"
   redirect_uris:
-    - "https://{{ domain }}/wp-admin/admin-ajax.php?action=openid-connect-authorize"
+    - "https://grafana.{{ domain }}/login/generic_oauth"
   scopes: ["openid", "profile", "email"]
 
-# Portainer
-authentik_sso_portainer:
-  enabled: "{{ portainer_enabled | default(false) }}"
-  client_id: "portainer"
-  provider_type: "oauth2"
+# === MASH Services — SSO Configuration ===
+
+# Nextcloud (OIDC)
+authentik_sso_nextcloud:
+  enabled: "{{ nextcloud_enabled | default(false) }}"
+  type: oauth2
+  client_id: "nextcloud"
   redirect_uris:
-    - "https://portainer.{{ domain }}"
+    - "https://cloud.{{ domain }}/apps/oidc/oidc"
   scopes: ["openid", "profile", "email"]
 
-# Grafana / Wazuh Dashboard
-authentik_sso_wazuh:
-  enabled: "{{ wazuh_integration_enabled | default(false) }}"
-  client_id: "wazuh-dashboard"
-  provider_type: "oauth2"
-  redirect_uris:
-    - "https://siem.{{ domain }}/auth/openid/login"
-  scopes: ["openid", "profile", "email"]
-
-# OpenCTI
-authentik_sso_opencti:
-  enabled: "{{ opencti_enabled | default(false) }}"
-  client_id: "opencti"
-  provider_type: "oauth2"
-  redirect_uris:
-    - "https://opencti.{{ domain }}/auth/oic/callback"
-  scopes: ["openid", "profile", "email"]
-
-# Gitea
-authentik_sso_gitea:
-  enabled: "{{ gitea_enabled | default(false) }}"
-  client_id: "gitea"
-  provider_type: "oauth2"
+# Forgejo (OIDC)
+authentik_sso_forgejo:
+  enabled: "{{ forgejo_enabled | default(false) }}"
+  type: oauth2
+  client_id: "forgejo"
   redirect_uris:
     - "https://git.{{ domain }}/user/oauth2/authentik/callback"
   scopes: ["openid", "profile", "email"]
 
-# Uptime Kuma (basic proxy auth — no native OIDC)
-authentik_sso_uptime_kuma:
-  enabled: false  # Uptime Kuma doesn't support OIDC natively
-  proxy_auth: true  # Use Authentik proxy provider instead
-
-# SearXNG (proxy auth)
-authentik_sso_searxng:
-  enabled: false  # SearXNG doesn't support OIDC
-  proxy_auth: true
-
-# Maubot
-authentik_sso_maubot:
-  enabled: false  # Maubot uses Matrix auth, not OIDC
-
-# Traefik Dashboard
-authentik_sso_traefik:
-  enabled: "{{ traefik_dashboard_enabled | default(false) }}"
-  client_id: "traefik"
-  provider_type: "proxy"  # ForwardAuth via Authentik proxy
-  forward_auth_url: "{{ authentik_base_url }}/outpost.goauthentik.io/auth/traefik"
-
-# EMS Platform
-authentik_sso_ems:
-  enabled: false  # EMS has its own auth — configure separately
-  client_id: "ems"
-  provider_type: "oauth2"
+# Gitea (OIDC)
+authentik_sso_gitea:
+  enabled: "{{ gitea_enabled | default(false) }}"
+  type: oauth2
+  client_id: "gitea"
   redirect_uris:
-    - "https://ems.{{ domain }}/api/auth/callback/authentik"
+    - "https://git.{{ domain }}/user/oauth2/authentik/callback"
   scopes: ["openid", "profile", "email"]
 
-# === Authentik API Settings ===
-authentik_api_url: "{{ authentik_base_url }}/api/v3"
+# GoToSocial (OIDC)
+authentik_sso_gotosocial:
+  enabled: "{{ gotosocial_enabled | default(false) }}"
+  type: oauth2
+  client_id: "gotosocial"
+  redirect_uris:
+    - "https://social.{{ domain }}/auth/callback"
+  scopes: ["openid", "profile", "email"]
 
-# === Group Mappings ===
-# Map Authentik groups to service roles
+# PeerTube (OIDC)
+authentik_sso_peertube:
+  enabled: "{{ peertube_enabled | default(false) }}"
+  type: oauth2
+  client_id: "peertube"
+  redirect_uris:
+    - "https://video.{{ domain }}/plugins/auth-openid-connect/router/code-cb"
+  scopes: ["openid", "profile", "email"]
+
+# Outline (OIDC)
+authentik_sso_outline:
+  enabled: "{{ outline_enabled | default(false) }}"
+  type: oauth2
+  client_id: "outline"
+  redirect_uris:
+    - "https://wiki.{{ domain }}/auth/oidc.callback"
+  scopes: ["openid", "profile", "email"]
+
+# Immich (OIDC)
+authentik_sso_immich:
+  enabled: "{{ immich_enabled | default(false) }}"
+  type: oauth2
+  client_id: "immich"
+  redirect_uris:
+    - "https://photos.{{ domain }}/auth/login"
+    - "app.immich:/"
+  scopes: ["openid", "profile", "email"]
+
+# Jellyfin (OIDC via plugin)
+authentik_sso_jellyfin:
+  enabled: "{{ jellyfin_enabled | default(false) }}"
+  type: oauth2
+  client_id: "jellyfin"
+  redirect_uris:
+    - "https://media.{{ domain }}/sso/OID/redirect/authentik"
+  scopes: ["openid", "profile"]
+
+# Portainer (OIDC)
+authentik_sso_portainer:
+  enabled: "{{ portainer_enabled | default(false) }}"
+  type: oauth2
+  client_id: "portainer"
+  redirect_uris:
+    - "https://portainer.{{ domain }}"
+  scopes: ["openid", "profile", "email"]
+
+# Wazuh Dashboard (OIDC)
+authentik_sso_wazuh:
+  enabled: false  # Wazuh OIDC requires manual indexer config
+  type: oauth2
+  client_id: "wazuh-dashboard"
+  redirect_uris:
+    - "https://siem.{{ domain }}/auth/openid/login"
+  scopes: ["openid", "profile", "email"]
+
+# OpenCTI (OIDC)
+authentik_sso_opencti:
+  enabled: "{{ opencti_enabled | default(false) }}"
+  type: oauth2
+  client_id: "opencti"
+  redirect_uris:
+    - "https://opencti.{{ domain }}/auth/oic/callback"
+  scopes: ["openid", "profile", "email"]
+
+# NetBox (OIDC)
+authentik_sso_netbox:
+  enabled: "{{ netbox_enabled | default(false) }}"
+  type: oauth2
+  client_id: "netbox"
+  redirect_uris:
+    - "https://netbox.{{ domain }}/oauth/complete/oidc/"
+  scopes: ["openid", "profile", "email"]
+
+# pgAdmin (OIDC)
+authentik_sso_pgadmin:
+  enabled: "{{ pgadmin_enabled | default(false) }}"
+  type: oauth2
+  client_id: "pgadmin"
+  redirect_uris:
+    - "https://pgadmin.{{ domain }}/oauth2/authorize"
+  scopes: ["openid", "profile", "email"]
+
+# Miniflux (OIDC)
+authentik_sso_miniflux:
+  enabled: "{{ miniflux_enabled | default(false) }}"
+  type: oauth2
+  client_id: "miniflux"
+  redirect_uris:
+    - "https://rss.{{ domain }}/oauth2/oidc/callback"
+  scopes: ["openid", "profile", "email"]
+
+# FreshRSS (proxy auth)
+authentik_sso_freshrss:
+  enabled: "{{ freshrss_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://rss.{{ domain }}"
+
+# Plausible (proxy auth — no native OIDC)
+authentik_sso_plausible:
+  enabled: "{{ plausible_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://analytics.{{ domain }}"
+
+# Matomo (proxy auth)
+authentik_sso_matomo:
+  enabled: "{{ matomo_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://analytics.{{ domain }}"
+
+# Paperless-ngx (proxy auth)
+authentik_sso_paperless:
+  enabled: "{{ paperless_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://docs.{{ domain }}"
+
+# SearXNG (proxy auth — no user accounts)
+authentik_sso_searxng:
+  enabled: "{{ searxng_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://search.{{ domain }}"
+
+# Uptime Kuma (proxy auth)
+authentik_sso_uptime_kuma:
+  enabled: "{{ uptime_kuma_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://uptime.{{ domain }}"
+
+# Listmonk (proxy auth)
+authentik_sso_listmonk:
+  enabled: "{{ listmonk_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://mail.{{ domain }}"
+
+# FreeScout (proxy auth)
+authentik_sso_freescout:
+  enabled: "{{ freescout_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://support.{{ domain }}"
+
+# LimeSurvey (proxy auth)
+authentik_sso_limesurvey:
+  enabled: "{{ limesurvey_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://survey.{{ domain }}"
+
+# Headscale (OIDC)
+authentik_sso_headscale:
+  enabled: "{{ headscale_enabled | default(false) }}"
+  type: oauth2
+  client_id: "headscale"
+  redirect_uris:
+    - "https://vpn.{{ domain }}/oidc/callback"
+  scopes: ["openid", "profile", "email"]
+
+# AdGuard Home (proxy auth — no native OIDC)
+authentik_sso_adguard:
+  enabled: "{{ adguard_home_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://dns.{{ domain }}"
+
+# WordPress (OIDC via plugin)
+authentik_sso_wordpress:
+  enabled: "{{ wordpress_enabled | default(false) }}"
+  type: oauth2
+  client_id: "wordpress"
+  redirect_uris:
+    - "https://{{ domain }}/wp-admin/admin-ajax.php?action=openid-connect-authorize"
+  scopes: ["openid", "profile", "email"]
+
+# Traefik Dashboard (ForwardAuth)
+authentik_sso_traefik:
+  enabled: "{{ traefik_dashboard_enabled | default(false) }}"
+  type: proxy
+  forward_auth_url: "{{ authentik_base_url }}/outpost.goauthentik.io/auth/traefik"
+
+# Focalboard (OIDC)
+authentik_sso_focalboard:
+  enabled: "{{ focalboard_enabled | default(false) }}"
+  type: oauth2
+  client_id: "focalboard"
+  redirect_uris:
+    - "https://boards.{{ domain }}/auth/oidc/callback"
+  scopes: ["openid", "profile", "email"]
+
+# Actual Budget (proxy auth)
+authentik_sso_actual:
+  enabled: "{{ actual_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://budget.{{ domain }}"
+
+# Docker Registry (proxy auth for UI)
+authentik_sso_registry:
+  enabled: "{{ docker_registry_enabled | default(false) }}"
+  type: proxy
+  external_host: "https://registry.{{ domain }}"
+
+# === Services that DON'T need SSO ===
+# CryptPad — E2EE, no external auth possible
+# PrivateBin — Zero-knowledge, no accounts
+# ntfy — Token-based, no OIDC
+# Mosquitto — MQTT protocol, no OIDC
+# Bridges — Use Matrix auth
+# Bots — Use Matrix auth
+# Element/Cinny/Hydrogen — Use Synapse auth (SSO flows through Synapse OIDC)
+
+# === Group → Role Mappings ===
 authentik_group_mappings:
   admins:
     services: ["*"]
     role: "admin"
   users:
-    services: ["matrix", "element", "wordpress", "searxng"]
+    services: ["synapse", "element", "nextcloud", "immich", "jellyfin", "searxng", "miniflux"]
     role: "user"
   soc:
-    services: ["wazuh", "opencti", "uptime-kuma"]
+    services: ["wazuh", "opencti", "grafana", "uptime-kuma"]
     role: "analyst"
   devops:
-    services: ["portainer", "gitea", "traefik", "ems"]
+    services: ["portainer", "forgejo", "gitea", "traefik", "netbox", "pgadmin", "registry"]
+    role: "editor"
+  marketing:
+    services: ["wordpress", "plausible", "matomo", "listmonk"]
     role: "editor"

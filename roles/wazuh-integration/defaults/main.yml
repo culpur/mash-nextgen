@@ -3,10 +3,12 @@
 #
 # Automatically deploys Wazuh agents, dashboards, fail2ban jails,
 # and active-response rules based on which services are enabled.
+#
+# Covers the full MASH + MDAD service catalog (~250 services).
 
 # === Master Controls ===
 wazuh_integration_enabled: true
-wazuh_manager_address: "10.0.70.249"
+wazuh_manager_address: ""  # REQUIRED — IP of your Wazuh manager
 wazuh_manager_port: 1514
 wazuh_agent_version: "4.14.3"
 
@@ -20,49 +22,190 @@ wazuh_dashboard_api_url: "https://{{ wazuh_manager_address }}:443"
 wazuh_dashboard_api_user: "admin"
 wazuh_dashboard_api_password: ""  # Set in vault
 
-# === Service Detection ===
-# These are auto-detected from upstream MASH/MDAD vars when wazuh_dashboards_auto is true
-# Override individually if needed
+# =====================================================================
+#  MDAD Service Detection
+# =====================================================================
 
 # Matrix Synapse
-wazuh_service_synapse: "{{ matrix_homeserver_implementation | default('') == 'synapse' }}"
+wazuh_service_synapse: "{{ matrix_homeserver_implementation | default('') in ['synapse', 'conduit', 'dendrite', 'conduwuit', 'continuwuity'] }}"
 wazuh_dashboard_synapse: "{{ wazuh_dashboards_auto and wazuh_service_synapse }}"
 wazuh_fail2ban_synapse: "{{ wazuh_fail2ban_auto and wazuh_service_synapse }}"
 wazuh_synapse_log_path: "/matrix/synapse/run/homeserver.log"
 
-# Matrix Bridges
-wazuh_service_bridges: "{{ (matrix_mautrix_discord_enabled | default(false)) or (matrix_mautrix_telegram_enabled | default(false)) or (matrix_mautrix_whatsapp_enabled | default(false)) }}"
+# Matrix Bridges (any enabled)
+wazuh_service_bridges: >-
+  {{ (matrix_mautrix_discord_enabled | default(false)) or
+     (matrix_mautrix_telegram_enabled | default(false)) or
+     (matrix_mautrix_whatsapp_enabled | default(false)) or
+     (matrix_mautrix_signal_enabled | default(false)) or
+     (matrix_mautrix_slack_enabled | default(false)) or
+     (matrix_mautrix_facebook_enabled | default(false)) or
+     (matrix_mautrix_instagram_enabled | default(false)) or
+     (matrix_mautrix_googlechat_enabled | default(false)) or
+     (matrix_mautrix_twitter_enabled | default(false)) or
+     (matrix_mautrix_bluesky_enabled | default(false)) or
+     (matrix_hookshot_enabled | default(false)) or
+     (matrix_heisenbridge_enabled | default(false)) or
+     (matrix_appservice_irc_enabled | default(false)) or
+     (matrix_go_skype_bridge_enabled | default(false)) or
+     (matrix_appservice_discord_enabled | default(false)) or
+     (matrix_appservice_slack_enabled | default(false)) or
+     (matrix_postmoogle_enabled | default(false)) }}
 wazuh_dashboard_bridges: "{{ wazuh_dashboards_auto and wazuh_service_bridges }}"
 
-# Authentik
-wazuh_service_authentik: "{{ authentik_enabled | default(false) }}"
-wazuh_dashboard_authentik: "{{ wazuh_dashboards_auto and wazuh_service_authentik }}"
-wazuh_fail2ban_authentik: "{{ wazuh_fail2ban_auto and wazuh_service_authentik }}"
-
-# WordPress
-wazuh_service_wordpress: "{{ wordpress_enabled | default(false) }}"
-wazuh_dashboard_wordpress: "{{ wazuh_dashboards_auto and wazuh_service_wordpress }}"
-wazuh_fail2ban_wordpress: "{{ wazuh_fail2ban_auto and wazuh_service_wordpress }}"
+# Matrix Bots (any enabled)
+wazuh_service_bots: >-
+  {{ (matrix_bot_draupnir_enabled | default(false)) or
+     (matrix_bot_mjolnir_enabled | default(false)) or
+     (matrix_bot_chatgpt_enabled | default(false)) or
+     (matrix_bot_maubot_enabled | default(false)) or
+     (matrix_bot_buscarron_enabled | default(false)) or
+     (matrix_bot_honoroit_enabled | default(false)) or
+     (matrix_bot_go_neb_enabled | default(false)) or
+     (matrix_bot_baibot_enabled | default(false)) }}
 
 # Jitsi
 wazuh_service_jitsi: "{{ jitsi_enabled | default(false) }}"
 wazuh_dashboard_jitsi: "{{ wazuh_dashboards_auto and wazuh_service_jitsi }}"
 
-# OpenCTI
+# LiveKit
+wazuh_service_livekit: "{{ matrix_livekit_enabled | default(false) or livekit_enabled | default(false) }}"
+
+# Coturn / TURN
+wazuh_service_coturn: "{{ matrix_coturn_enabled | default(false) }}"
+
+# Matrix Registration
+wazuh_service_registration: "{{ matrix_registration_enabled | default(false) }}"
+wazuh_fail2ban_registration: "{{ wazuh_fail2ban_auto and wazuh_service_registration }}"
+
+# Synapse Admin
+wazuh_service_synapse_admin: "{{ matrix_synapse_admin_enabled | default(false) }}"
+
+# Etherpad
+wazuh_service_etherpad: "{{ etherpad_enabled | default(false) }}"
+
+# ma1sd
+wazuh_service_ma1sd: "{{ matrix_ma1sd_enabled | default(false) }}"
+wazuh_fail2ban_ma1sd: "{{ wazuh_fail2ban_auto and wazuh_service_ma1sd }}"
+
+# Sygnal (push notifications)
+wazuh_service_sygnal: "{{ matrix_sygnal_enabled | default(false) }}"
+
+# ntfy
+wazuh_service_ntfy: "{{ ntfy_enabled | default(false) }}"
+
+# Prometheus + Grafana
+wazuh_service_prometheus: "{{ prometheus_enabled | default(false) }}"
+wazuh_service_grafana: "{{ grafana_enabled | default(false) }}"
+wazuh_dashboard_prometheus: "{{ wazuh_dashboards_auto and wazuh_service_prometheus }}"
+
+# =====================================================================
+#  MASH Service Detection
+# =====================================================================
+
+# Authentication
+wazuh_service_authentik: "{{ authentik_enabled | default(false) }}"
+wazuh_dashboard_authentik: "{{ wazuh_dashboards_auto and wazuh_service_authentik }}"
+wazuh_fail2ban_authentik: "{{ wazuh_fail2ban_auto and wazuh_service_authentik }}"
+
+wazuh_service_authelia: "{{ authelia_enabled | default(false) }}"
+wazuh_fail2ban_authelia: "{{ wazuh_fail2ban_auto and wazuh_service_authelia }}"
+
+wazuh_service_keycloak: "{{ keycloak_enabled | default(false) }}"
+wazuh_fail2ban_keycloak: "{{ wazuh_fail2ban_auto and wazuh_service_keycloak }}"
+
+wazuh_service_lldap: "{{ lldap_enabled | default(false) }}"
+wazuh_fail2ban_lldap: "{{ wazuh_fail2ban_auto and wazuh_service_lldap }}"
+
+# Web / CMS
+wazuh_service_wordpress: "{{ wordpress_enabled | default(false) }}"
+wazuh_dashboard_wordpress: "{{ wazuh_dashboards_auto and wazuh_service_wordpress }}"
+wazuh_fail2ban_wordpress: "{{ wazuh_fail2ban_auto and wazuh_service_wordpress }}"
+
+wazuh_service_nextcloud: "{{ nextcloud_enabled | default(false) }}"
+wazuh_dashboard_nextcloud: "{{ wazuh_dashboards_auto and wazuh_service_nextcloud }}"
+wazuh_fail2ban_nextcloud: "{{ wazuh_fail2ban_auto and wazuh_service_nextcloud }}"
+
+# Git / DevOps
+wazuh_service_forgejo: "{{ forgejo_enabled | default(false) }}"
+wazuh_fail2ban_forgejo: "{{ wazuh_fail2ban_auto and wazuh_service_forgejo }}"
+
+wazuh_service_gitea: "{{ gitea_enabled | default(false) }}"
+wazuh_fail2ban_gitea: "{{ wazuh_fail2ban_auto and wazuh_service_gitea }}"
+
+# Social / Federation
+wazuh_service_gotosocial: "{{ gotosocial_enabled | default(false) }}"
+wazuh_fail2ban_gotosocial: "{{ wazuh_fail2ban_auto and wazuh_service_gotosocial }}"
+
+wazuh_service_peertube: "{{ peertube_enabled | default(false) }}"
+wazuh_fail2ban_peertube: "{{ wazuh_fail2ban_auto and wazuh_service_peertube }}"
+
+wazuh_service_misskey: "{{ misskey_enabled | default(false) }}"
+
+# Media
+wazuh_service_jellyfin: "{{ jellyfin_enabled | default(false) }}"
+wazuh_fail2ban_jellyfin: "{{ wazuh_fail2ban_auto and wazuh_service_jellyfin }}"
+
+wazuh_service_immich: "{{ immich_enabled | default(false) }}"
+wazuh_service_navidrome: "{{ navidrome_enabled | default(false) }}"
+wazuh_service_funkwhale: "{{ funkwhale_enabled | default(false) }}"
+wazuh_service_plex: "{{ plex_enabled | default(false) }}"
+wazuh_service_audiobookshelf: "{{ audiobookshelf_enabled | default(false) }}"
+
+# Analytics
+wazuh_service_plausible: "{{ plausible_enabled | default(false) }}"
+wazuh_service_matomo: "{{ matomo_enabled | default(false) }}"
+
+# Document Management
+wazuh_service_paperless: "{{ paperless_enabled | default(false) }}"
+
+# Knowledge / Wiki
+wazuh_service_outline: "{{ outline_enabled | default(false) }}"
+wazuh_service_mediawiki: "{{ mediawiki_enabled | default(false) }}"
+wazuh_service_dokuwiki: "{{ dokuwiki_enabled | default(false) }}"
+
+# Security
+wazuh_service_vaultwarden: "{{ vaultwarden_enabled | default(false) }}"
+wazuh_fail2ban_vaultwarden: "{{ wazuh_fail2ban_auto and wazuh_service_vaultwarden }}"
+
+wazuh_service_adguard: "{{ adguard_home_enabled | default(false) }}"
+wazuh_service_endlessh: "{{ endlessh_enabled | default(false) }}"
+
+# Networking
+wazuh_service_headscale: "{{ headscale_enabled | default(false) }}"
+
+# Monitoring
+wazuh_service_uptime_kuma: "{{ uptime_kuma_enabled | default(false) }}"
+wazuh_service_healthchecks: "{{ healthchecks_enabled | default(false) }}"
+
+# Communication
+wazuh_service_listmonk: "{{ listmonk_enabled | default(false) }}"
+wazuh_service_freescout: "{{ freescout_enabled | default(false) }}"
+
+# Search
+wazuh_service_searxng: "{{ searxng_enabled | default(false) }}"
+wazuh_service_meilisearch: "{{ meilisearch_enabled | default(false) }}"
+
+# Databases
+wazuh_service_postgresql: "{{ postgres_enabled | default(false) }}"
+wazuh_dashboard_postgresql: "{{ wazuh_dashboards_auto and wazuh_service_postgresql }}"
+wazuh_service_mariadb: "{{ mariadb_enabled | default(false) }}"
+wazuh_service_clickhouse: "{{ clickhouse_enabled | default(false) }}"
+wazuh_service_influxdb: "{{ influxdb_enabled | default(false) }}"
+
+# Docker / Infrastructure
+wazuh_service_docker_registry: "{{ docker_registry_enabled | default(false) }}"
+wazuh_dashboard_registry: "{{ wazuh_dashboards_auto and wazuh_service_docker_registry }}"
+
+wazuh_service_netbox: "{{ netbox_enabled | default(false) }}"
+wazuh_service_portainer: "{{ portainer_enabled | default(false) }}"
+
+# Backup
+wazuh_service_borgbackup: "{{ borgbackup_enabled | default(false) }}"
+
+# Threat Intelligence (if deployed)
 wazuh_service_opencti: "{{ opencti_enabled | default(false) }}"
 wazuh_dashboard_opencti: "{{ wazuh_dashboards_auto and wazuh_service_opencti }}"
-
-# Docker Registry
-wazuh_service_registry: "{{ registry_enabled | default(false) }}"
-wazuh_dashboard_registry: "{{ wazuh_dashboards_auto and wazuh_service_registry }}"
-
-# SearXNG
-wazuh_service_searxng: "{{ searxng_enabled | default(false) }}"
-wazuh_dashboard_searxng: "{{ wazuh_dashboards_auto and wazuh_service_searxng }}"
-
-# Uptime Kuma
-wazuh_service_uptime_kuma: "{{ uptime_kuma_enabled | default(false) }}"
-wazuh_dashboard_uptime_kuma: "{{ wazuh_dashboards_auto and wazuh_service_uptime_kuma }}"
 
 # Traefik (always enabled in Swarm mode)
 wazuh_service_traefik: true
@@ -70,26 +213,32 @@ wazuh_dashboard_traefik: "{{ wazuh_dashboards_auto }}"
 wazuh_fail2ban_traefik: "{{ wazuh_fail2ban_auto }}"
 wazuh_traefik_log_path: "/opt/traefik/access.log"
 
-# PostgreSQL
-wazuh_service_postgresql: "{{ postgres_enabled | default(false) }}"
-wazuh_dashboard_postgresql: "{{ wazuh_dashboards_auto and wazuh_service_postgresql }}"
-
 # Docker Swarm (always enabled)
 wazuh_dashboard_docker_swarm: "{{ wazuh_dashboards_auto }}"
 wazuh_dashboard_infrastructure: "{{ wazuh_dashboards_auto }}"
 
-# SEO / Marketing (enabled when web services are present)
-wazuh_dashboard_seo: "{{ wazuh_dashboards_auto and (wazuh_service_wordpress or wazuh_service_synapse) }}"
+# SEO / Marketing (enabled when any web service is present)
+wazuh_dashboard_seo: >-
+  {{ wazuh_dashboards_auto and
+     (wazuh_service_wordpress or wazuh_service_nextcloud or
+      wazuh_service_gotosocial or wazuh_service_peertube or
+      wazuh_service_mediawiki or wazuh_service_forgejo or
+      wazuh_service_plausible or wazuh_service_matomo) }}
 
 # Compliance (always enabled)
 wazuh_dashboard_compliance: "{{ wazuh_dashboards_auto }}"
 
-# === Fail2ban Settings ===
+# =====================================================================
+#  Fail2ban Settings
+# =====================================================================
 fail2ban_default_bantime: 3600
 fail2ban_default_findtime: 600
 fail2ban_default_maxretry: 5
 
-# Per-service overrides
+fail2ban_ssh_maxretry: 3
+fail2ban_ssh_bantime: 3600
+fail2ban_ssh_findtime: 600
+
 fail2ban_synapse_maxretry: 5
 fail2ban_synapse_bantime: 3600
 fail2ban_synapse_findtime: 300
@@ -102,15 +251,29 @@ fail2ban_wordpress_maxretry: 3
 fail2ban_wordpress_bantime: 86400
 fail2ban_wordpress_findtime: 600
 
+fail2ban_nextcloud_maxretry: 5
+fail2ban_nextcloud_bantime: 3600
+fail2ban_nextcloud_findtime: 300
+
+fail2ban_forgejo_maxretry: 5
+fail2ban_forgejo_bantime: 3600
+fail2ban_forgejo_findtime: 300
+
+fail2ban_vaultwarden_maxretry: 3
+fail2ban_vaultwarden_bantime: 86400
+fail2ban_vaultwarden_findtime: 300
+
+fail2ban_jellyfin_maxretry: 5
+fail2ban_jellyfin_bantime: 3600
+fail2ban_jellyfin_findtime: 300
+
 fail2ban_traefik_maxretry: 20
 fail2ban_traefik_bantime: 3600
 fail2ban_traefik_findtime: 60
 
-fail2ban_ssh_maxretry: 3
-fail2ban_ssh_bantime: 3600
-fail2ban_ssh_findtime: 600
-
-# === Active Response ===
+# =====================================================================
+#  Active Response
+# =====================================================================
 active_response_ssh_brute_force:
   command: "firewall-drop"
   location: "local"
@@ -126,17 +289,23 @@ active_response_web_brute_force:
 active_response_synapse_brute_force:
   command: "firewall-drop"
   location: "local"
-  rules_id: "100100"
+  rules_id: "100101"
   timeout: 3600
 
 active_response_wordpress_xmlrpc:
   command: "firewall-drop"
   location: "local"
-  rules_id: "100200"
+  rules_id: "100201"
+  timeout: 86400
+
+active_response_vaultwarden_brute_force:
+  command: "firewall-drop"
+  location: "local"
+  rules_id: "100501"
   timeout: 86400
 
 active_response_docker_crash_loop:
   command: "docker-restart"
   location: "local"
-  rules_id: "100300"
+  rules_id: "100301"
   timeout: 600
