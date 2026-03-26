@@ -3,5 +3,7 @@
 
 {% for export in nfs_server_exports %}
 # {{ export.description | default('') }}
-{{ export.path }} {{ export.options }}
+{% for host in groups['swarm'] %}
+{{ export.path }} {{ hostvars[host]['ansible_host'] }}({{ nfs_export_opts }})
+{% endfor %}
 {% endfor %}

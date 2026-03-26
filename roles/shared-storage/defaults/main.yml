@@ -5,13 +5,13 @@
 # accessible from any node in the Swarm for failover.
 
 # NFS server configuration
+nfs_export_opts: "rw,sync,no_subtree_check,no_root_squash"
+
 nfs_server_exports:
   - path: /srv/nfs/matrix-media
-    options: "{{ groups['swarm'] | map('extract', hostvars, 'ansible_host') | join('(rw,sync,no_subtree_check,no_root_squash) ') }}(rw,sync,no_subtree_check,no_root_squash)"
     description: "Matrix Synapse media store"
 
   - path: /srv/nfs/shared-data
-    options: "{{ groups['swarm'] | map('extract', hostvars, 'ansible_host') | join('(rw,sync,no_subtree_check,no_root_squash) ') }}(rw,sync,no_subtree_check,no_root_squash)"
     description: "General shared data"
 
 # NFS client mount configuration

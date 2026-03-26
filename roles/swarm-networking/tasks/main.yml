@@ -2,20 +2,33 @@
 # Create overlay networks for Docker Swarm
 # Only runs on manager node
 
-- name: Create overlay networks
-  community.docker.docker_network:
-    name: "{{ item.name }}"
-    driver: "{{ item.driver | default('overlay') }}"
-    attachable: "{{ item.attachable | default(true) }}"
-    internal: "{{ item.internal | default(false) }}"
-    labels: "{{ item.labels | default({}) }}"
-    state: present
-  loop: "{{ swarm_overlay_networks }}"
+- name: Check existing overlay networks
+  ansible.builtin.command: >
+    docker network ls --filter driver=overlay --format '{{ '{{' }} .Name {{ '}}' }}'
+  register: existing_networks
+  changed_when: false
   when: inventory_hostname in groups['swarm_managers']
   run_once: true
 
-- name: List networks
-  ansible.builtin.command: docker network ls --filter driver=overlay --format '{{ '{{' }} .Name {{ '}}' }}'
+- name: Create overlay networks
+  ansible.builtin.command: >
+    docker network create
+    --driver overlay
+    --attachable
+    {{ '--internal' if (item.internal | default(false)) else '' }}
+    --label managed-by=mash-nextgen
+    {{ item.name }}
+  loop: "{{ swarm_overlay_networks }}"
+  when:
+    - inventory_hostname in groups['swarm_managers']
+    - item.name not in (existing_networks.stdout_lines | default([]))
+  run_once: true
+  changed_when: true
+
+- name: List overlay networks
+  ansible.builtin.command: >
+    docker network ls --filter driver=overlay
+    --format '{{ '{{' }} .Name {{ '}}' }}'
   register: overlay_networks
   changed_when: false
   when: inventory_hostname in groups['swarm_managers']

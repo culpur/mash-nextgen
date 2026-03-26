@@ -23,7 +23,10 @@
 # Docker container log paths — discovered dynamically
 - name: Get Docker log directory paths for monitored containers
   ansible.builtin.shell: |
+    set -o pipefail
     docker inspect --format='{{ '{{' }} .LogPath {{ '}}' }}' $(docker ps -q) 2>/dev/null | head -50
+  args:
+    executable: /bin/bash
   register: docker_log_paths
   changed_when: false
   failed_when: false

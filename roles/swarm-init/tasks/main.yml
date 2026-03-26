@@ -45,6 +45,7 @@
     - inventory_hostname in groups['swarm_managers']
     - swarm_state.stdout != 'active'
   register: swarm_init_result
+  changed_when: swarm_init_result.rc == 0
 
 - name: Get worker join token
   ansible.builtin.command: docker swarm join-token worker -q
@@ -77,6 +78,7 @@
   when:
     - inventory_hostname in groups['swarm_workers']
     - swarm_state.stdout != 'active'
+  changed_when: true
 
 # Verify
 - name: List Swarm nodes (manager only)
