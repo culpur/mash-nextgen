@@ -307,5 +307,5 @@ active_response_vaultwarden_brute_force:
 active_response_docker_crash_loop:
   command: "docker-restart"
   location: "local"
-  rules_id: "100301"
+  rules_id: "100351"
   timeout: 600

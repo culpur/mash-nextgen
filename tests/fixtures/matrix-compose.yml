@@ -1,0 +1,180 @@
+---
+# Simulated MDAD output — Matrix Synapse stack with workers, bridges, and supporting services
+# This matches the structure that matrix-docker-ansible-deploy generates.
+
+version: "3.8"
+
+services:
+  matrix-synapse:
+    image: ghcr.io/element-hq/synapse:v1.119.0
+    container_name: matrix-synapse
+    restart: unless-stopped
+    volumes:
+      - /matrix/synapse/config:/data:rw
+      - /matrix/synapse/storage:/matrix-media-store-parent:rw
+    networks:
+      - matrix
+      - traefik-public
+    environment:
+      SYNAPSE_CONFIG_DIR: /data
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+      SYNAPSE_WORKER: ""
+      UID: "991"
+      GID: "991"
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: traefik-public
+      traefik.http.routers.matrix-synapse.rule: "Host(`matrix.example.com`)"
+      traefik.http.routers.matrix-synapse.entrypoints: websecure
+      traefik.http.routers.matrix-synapse.tls: "true"
+      traefik.http.routers.matrix-synapse.tls.certresolver: letsencrypt
+      traefik.http.services.matrix-synapse.loadbalancer.server.port: "8008"
+
+  matrix-postgres:
+    image: docker.io/postgres:16.4-alpine
+    container_name: matrix-postgres
+    restart: unless-stopped
+    volumes:
+      - /matrix/postgres/data:/var/lib/postgresql/data:rw
+      - /matrix/postgres/run:/var/run/postgresql:rw
+    environment:
+      POSTGRES_USER: synapse
+      POSTGRES_PASSWORD: "{{ matrix_synapse_database_password }}"
+      POSTGRES_DB: synapse
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    networks:
+      - matrix
+
+  matrix-synapse-worker-generic-0:
+    image: ghcr.io/element-hq/synapse:v1.119.0
+    container_name: matrix-synapse-worker-generic-0
+    restart: unless-stopped
+    volumes:
+      - /matrix/synapse/config:/data:rw
+      - /matrix/synapse/storage:/matrix-media-store-parent:rw
+    depends_on:
+      - matrix-synapse
+    environment:
+      SYNAPSE_CONFIG_DIR: /data
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+      SYNAPSE_WORKER: synapse.app.generic_worker
+    networks:
+      - matrix
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: traefik-public
+      traefik.http.routers.matrix-synapse-worker-generic-0.rule: "Host(`matrix.example.com`) && PathPrefix(`/_matrix/client/(r0|v3)/sync`)"
+      traefik.http.services.matrix-synapse-worker-generic-0.loadbalancer.server.port: "8083"
+
+  matrix-synapse-worker-federation-sender-0:
+    image: ghcr.io/element-hq/synapse:v1.119.0
+    container_name: matrix-synapse-worker-federation-sender-0
+    restart: unless-stopped
+    volumes:
+      - /matrix/synapse/config:/data:rw
+    depends_on:
+      - matrix-synapse
+    environment:
+      SYNAPSE_CONFIG_DIR: /data
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+      SYNAPSE_WORKER: synapse.app.federation_sender
+    networks:
+      - matrix
+
+  matrix-mautrix-discord:
+    image: dock.mau.dev/mautrix/discord:v0.7.1
+    container_name: matrix-mautrix-discord
+    restart: unless-stopped
+    volumes:
+      - /matrix/mautrix-discord:/data:rw
+    environment:
+      MAUTRIX_DIRECT_STARTUP: "true"
+    depends_on:
+      - matrix-synapse
+    networks:
+      - matrix
+
+  matrix-mautrix-telegram:
+    image: dock.mau.dev/mautrix/telegram:v0.15.2
+    container_name: matrix-mautrix-telegram
+    restart: unless-stopped
+    volumes:
+      - /matrix/mautrix-telegram:/data:rw
+    environment:
+      MAUTRIX_DIRECT_STARTUP: "true"
+    depends_on:
+      - matrix-synapse
+    networks:
+      - matrix
+
+  matrix-mautrix-whatsapp:
+    image: dock.mau.dev/mautrix/whatsapp:v0.10.9
+    container_name: matrix-mautrix-whatsapp
+    restart: unless-stopped
+    volumes:
+      - /matrix/mautrix-whatsapp:/data:rw
+    environment:
+      MAUTRIX_DIRECT_STARTUP: "true"
+    depends_on:
+      - matrix-synapse
+    networks:
+      - matrix
+
+  matrix-traefik:
+    image: docker.io/traefik:v3.1
+    container_name: matrix-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /matrix/traefik/config:/etc/traefik:rw
+      - /matrix/traefik/ssl:/ssl:rw
+    command:
+      - "--api.dashboard=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=admin@example.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/ssl/acme.json"
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: traefik-public
+    networks:
+      - matrix
+      - traefik-public
+
+  matrix-element:
+    image: docker.io/vectorim/element-web:v1.11.80
+    container_name: matrix-element
+    restart: unless-stopped
+    volumes:
+      - /matrix/element/config:/app/config:ro
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: traefik-public
+      traefik.http.routers.matrix-element.rule: "Host(`element.example.com`)"
+      traefik.http.routers.matrix-element.entrypoints: websecure
+      traefik.http.routers.matrix-element.tls: "true"
+      traefik.http.routers.matrix-element.tls.certresolver: letsencrypt
+      traefik.http.services.matrix-element.loadbalancer.server.port: "80"
+    networks:
+      - traefik-public
+
+  matrix-valkey:
+    image: docker.io/valkey/valkey:8.0-alpine
+    container_name: matrix-valkey
+    restart: unless-stopped
+    volumes:
+      - /matrix/valkey/data:/data:rw
+    networks:
+      - matrix
+
+networks:
+  matrix:
+    driver: overlay
+  traefik-public:
+    external: true

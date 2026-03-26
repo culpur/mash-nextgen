@@ -1,0 +1,155 @@
+---
+# Simulated MASH output — Authentik SSO, SearXNG, Uptime Kuma, and supporting services
+# This matches the structure that mash-playbook generates.
+
+version: "3.8"
+
+services:
+  mash-authentik-server:
+    image: ghcr.io/goauthentik/server:2024.8.3
+    container_name: mash-authentik-server
+    restart: unless-stopped
+    command: server
+    volumes:
+      - /mash/authentik/media:/media:rw
+      - /mash/authentik/templates:/templates:rw
+    environment:
+      AUTHENTIK_REDIS__HOST: mash-keydb
+      AUTHENTIK_POSTGRESQL__HOST: mash-postgres
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: "{{ authentik_database_password }}"
+      AUTHENTIK_SECRET_KEY: "{{ authentik_secret_key }}"
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: traefik-public
+      traefik.http.routers.mash-authentik.rule: "Host(`login.example.com`)"
+      traefik.http.routers.mash-authentik.entrypoints: websecure
+      traefik.http.routers.mash-authentik.tls: "true"
+      traefik.http.routers.mash-authentik.tls.certresolver: letsencrypt
+      traefik.http.services.mash-authentik.loadbalancer.server.port: "9000"
+    depends_on:
+      - mash-postgres
+      - mash-keydb
+    networks:
+      - mash
+      - traefik-public
+
+  mash-authentik-worker:
+    image: ghcr.io/goauthentik/server:2024.8.3
+    container_name: mash-authentik-worker
+    restart: unless-stopped
+    command: worker
+    volumes:
+      - /mash/authentik/media:/media:rw
+      - /mash/authentik/certs:/certs:rw
+      - /mash/authentik/templates:/templates:rw
+    environment:
+      AUTHENTIK_REDIS__HOST: mash-keydb
+      AUTHENTIK_POSTGRESQL__HOST: mash-postgres
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: "{{ authentik_database_password }}"
+      AUTHENTIK_SECRET_KEY: "{{ authentik_secret_key }}"
+    depends_on:
+      - mash-postgres
+      - mash-keydb
+    networks:
+      - mash
+
+  mash-postgres:
+    image: docker.io/postgres:16.4-alpine
+    container_name: mash-postgres
+    restart: unless-stopped
+    volumes:
+      - /mash/postgres/data:/var/lib/postgresql/data:rw
+    environment:
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: "{{ authentik_database_password }}"
+      POSTGRES_DB: authentik
+    networks:
+      - mash
+
+  mash-keydb:
+    image: docker.io/eqalpha/keydb:x86_64_v6.3.4
+    container_name: mash-keydb
+    restart: unless-stopped
+    volumes:
+      - /mash/keydb/data:/data:rw
+    networks:
+      - mash
+
+  mash-traefik:
+    image: docker.io/traefik:v3.1
+    container_name: mash-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /mash/traefik/config:/etc/traefik:rw
+      - /mash/traefik/ssl:/ssl:rw
+    command:
+      - "--api.dashboard=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: traefik-public
+    networks:
+      - mash
+      - traefik-public
+
+  mash-searxng:
+    image: docker.io/searxng/searxng:2024.9.27-e45a7cc15
+    container_name: mash-searxng
+    restart: unless-stopped
+    volumes:
+      - /mash/searxng/config:/etc/searxng:rw
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: traefik-public
+      traefik.http.routers.mash-searxng.rule: "Host(`search.example.com`)"
+      traefik.http.routers.mash-searxng.entrypoints: websecure
+      traefik.http.routers.mash-searxng.tls: "true"
+      traefik.http.services.mash-searxng.loadbalancer.server.port: "8080"
+    networks:
+      - mash
+      - traefik-public
+
+  mash-uptime-kuma:
+    image: docker.io/louislam/uptime-kuma:1.23.15-alpine
+    container_name: mash-uptime-kuma
+    restart: unless-stopped
+    volumes:
+      - /mash/uptime-kuma/data:/app/data:rw
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: traefik-public
+      traefik.http.routers.mash-uptime-kuma.rule: "Host(`status.example.com`)"
+      traefik.http.routers.mash-uptime-kuma.entrypoints: websecure
+      traefik.http.routers.mash-uptime-kuma.tls: "true"
+      traefik.http.services.mash-uptime-kuma.loadbalancer.server.port: "3001"
+    networks:
+      - mash
+      - traefik-public
+
+  mash-valkey:
+    image: docker.io/valkey/valkey:8.0-alpine
+    container_name: mash-valkey
+    restart: unless-stopped
+    volumes:
+      - /mash/valkey/data:/data:rw
+    networks:
+      - mash
+
+networks:
+  mash:
+    driver: overlay
+  traefik-public:
+    external: true
