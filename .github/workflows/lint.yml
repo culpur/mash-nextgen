@@ -214,7 +214,7 @@ jobs:
           done
 
           # Also check any non-template XML files
-          for xml_file in roles/wazuh-integration/files/**/*.xml 2>/dev/null; do
+          find roles/wazuh-integration/files/ -name '*.xml' 2>/dev/null | while read -r xml_file; do
             [ -f "$xml_file" ] || continue
             echo "  Checking static XML: $(basename "$xml_file")"
             python3 -c "
