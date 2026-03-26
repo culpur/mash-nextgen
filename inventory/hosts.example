@@ -1,0 +1,24 @@
+# mash-nextgen inventory
+# Copy this to 'hosts' and configure for your environment
+
+[swarm_managers]
+node1 ansible_host=10.0.70.6 ansible_user=root
+
+[swarm_workers]
+node2 ansible_host=10.0.70.7 ansible_user=root
+
+[swarm:children]
+swarm_managers
+swarm_workers
+
+# All hosts that run Docker services
+[docker_hosts:children]
+swarm
+
+# NFS server for shared storage (typically the manager)
+[nfs_server]
+node1
+
+# NFS clients
+[nfs_clients]
+node2

@@ -1,0 +1,59 @@
+---
+# Shared storage setup — NFS server + clients
+
+# === NFS Server ===
+- name: Install NFS server
+  ansible.builtin.package:
+    name: nfs-kernel-server
+    state: present
+  when: inventory_hostname in groups['nfs_server']
+
+- name: Create NFS export directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  loop: "{{ nfs_server_exports }}"
+  when: inventory_hostname in groups['nfs_server']
+
+- name: Configure NFS exports
+  ansible.builtin.template:
+    src: exports.j2
+    dest: /etc/exports
+    mode: '0644'
+  notify: Reload NFS exports
+  when: inventory_hostname in groups['nfs_server']
+
+- name: Ensure NFS server is running
+  ansible.builtin.service:
+    name: nfs-kernel-server
+    state: started
+    enabled: true
+  when: inventory_hostname in groups['nfs_server']
+
+# === NFS Clients ===
+- name: Install NFS client
+  ansible.builtin.package:
+    name: nfs-common
+    state: present
+  when: inventory_hostname in groups['nfs_clients']
+
+- name: Create NFS mount points
+  ansible.builtin.file:
+    path: "{{ item.dest }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ nfs_client_mounts }}"
+  when: inventory_hostname in groups['nfs_clients']
+
+- name: Mount NFS shares
+  ansible.posix.mount:
+    path: "{{ item.dest }}"
+    src: "{{ item.src }}"
+    fstype: "{{ item.fstype }}"
+    opts: "{{ item.opts }}"
+    state: mounted
+  loop: "{{ nfs_client_mounts }}"
+  when: inventory_hostname in groups['nfs_clients']

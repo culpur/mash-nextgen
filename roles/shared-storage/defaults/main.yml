@@ -1,0 +1,27 @@
+---
+# Shared storage via NFS for cross-node data access
+#
+# Stateful services (PostgreSQL, Synapse media) need data
+# accessible from any node in the Swarm for failover.
+
+# NFS server configuration
+nfs_server_exports:
+  - path: /srv/nfs/matrix-media
+    options: "{{ groups['swarm'] | map('extract', hostvars, 'ansible_host') | join('(rw,sync,no_subtree_check,no_root_squash) ') }}(rw,sync,no_subtree_check,no_root_squash)"
+    description: "Matrix Synapse media store"
+
+  - path: /srv/nfs/shared-data
+    options: "{{ groups['swarm'] | map('extract', hostvars, 'ansible_host') | join('(rw,sync,no_subtree_check,no_root_squash) ') }}(rw,sync,no_subtree_check,no_root_squash)"
+    description: "General shared data"
+
+# NFS client mount configuration
+nfs_client_mounts:
+  - src: "{{ hostvars[groups['nfs_server'][0]]['ansible_host'] }}:/srv/nfs/matrix-media"
+    dest: /srv/nfs/matrix-media
+    fstype: nfs4
+    opts: "rw,sync,hard,intr,timeo=600,retrans=3"
+
+  - src: "{{ hostvars[groups['nfs_server'][0]]['ansible_host'] }}:/srv/nfs/shared-data"
+    dest: /srv/nfs/shared-data
+    fstype: nfs4
+    opts: "rw,sync,hard,intr,timeo=600,retrans=3"

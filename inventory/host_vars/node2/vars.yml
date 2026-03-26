@@ -1,0 +1,10 @@
+---
+# Node 2 — Swarm Worker
+# Runs bridges, Jitsi, bots, and other distributed services
+
+swarm_advertise_interface: "{{ ansible_host }}"
+
+swarm_node_labels:
+  role: worker
+  storage: ssd
+  services: distributed

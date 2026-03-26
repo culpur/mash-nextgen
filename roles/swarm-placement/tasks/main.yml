@@ -1,0 +1,45 @@
+---
+# Apply node labels for service placement
+
+- name: Get node ID
+  ansible.builtin.command: docker info --format '{{ '{{' }} .Swarm.NodeID {{ '}}' }}'
+  register: node_id
+  changed_when: false
+
+- name: Apply node labels (from manager)
+  ansible.builtin.command: >
+    docker node update
+    --label-add {{ item.key }}={{ item.value }}
+    {{ hostvars[host]['node_id']['stdout'] }}
+  loop: "{{ hostvars[host]['swarm_node_labels'] | dict2items }}"
+  loop_control:
+    label: "{{ host }}: {{ item.key }}={{ item.value }}"
+  vars:
+    host: "{{ item_host }}"
+  when: inventory_hostname in groups['swarm_managers']
+  changed_when: false
+  with_items: "{{ groups['swarm'] }}"
+  loop_control:
+    loop_var: item_host
+
+# Simplified: apply labels for each host from the manager
+- name: Apply labels for this node
+  ansible.builtin.command: >
+    docker node update
+    --label-add {{ item.key }}={{ item.value }}
+    {{ node_id.stdout }}
+  loop: "{{ swarm_node_labels | dict2items }}"
+  delegate_to: "{{ groups['swarm_managers'][0] }}"
+  changed_when: false
+
+- name: Verify node labels
+  ansible.builtin.command: >
+    docker node inspect {{ node_id.stdout }}
+    --format '{{ '{{' }} json .Spec.Labels {{ '}}' }}'
+  register: node_labels
+  changed_when: false
+  delegate_to: "{{ groups['swarm_managers'][0] }}"
+
+- name: Display node labels
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }}: {{ node_labels.stdout }}"

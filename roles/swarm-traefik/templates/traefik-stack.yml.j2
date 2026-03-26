@@ -1,0 +1,70 @@
+# Managed by mash-nextgen Ansible playbook
+# Traefik in Docker Swarm mode
+
+version: "3.8"
+
+services:
+  traefik:
+    image: {{ traefik_image }}
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.endpoint={{ traefik_docker_endpoint }}"
+      - "--providers.docker.swarmMode={{ traefik_docker_swarm_mode }}"
+      - "--providers.docker.exposedByDefault={{ traefik_docker_expose_by_default }}"
+      - "--providers.docker.network={{ traefik_network }}"
+      - "--entryPoints.web.address=:{{ traefik_entrypoint_web_port }}"
+      - "--entryPoints.websecure.address=:{{ traefik_entrypoint_websecure_port }}"
+      - "--entryPoints.matrix-federation.address=:{{ traefik_entrypoint_matrix_federation_port }}"
+{% if traefik_forwarded_headers_insecure %}
+      - "--entryPoints.web.forwardedHeaders.insecure=true"
+      - "--entryPoints.websecure.forwardedHeaders.insecure=true"
+      - "--entryPoints.matrix-federation.forwardedHeaders.insecure=true"
+{% endif %}
+{% if traefik_acme_enabled %}
+      - "--certificatesResolvers.letsencrypt.acme.email={{ traefik_acme_email }}"
+      - "--certificatesResolvers.letsencrypt.acme.storage={{ traefik_acme_storage }}"
+      - "--certificatesResolvers.letsencrypt.acme.httpChallenge.entryPoint=web"
+{% endif %}
+{% if traefik_dashboard_enabled %}
+      - "--api.dashboard=true"
+{% endif %}
+      - "--log.level={{ traefik_log_level }}"
+    ports:
+      - target: {{ traefik_entrypoint_web_port }}
+        published: {{ traefik_entrypoint_web_port }}
+        protocol: tcp
+        mode: host
+      - target: {{ traefik_entrypoint_websecure_port }}
+        published: {{ traefik_entrypoint_websecure_port }}
+        protocol: tcp
+        mode: host
+      - target: {{ traefik_entrypoint_matrix_federation_port }}
+        published: {{ traefik_entrypoint_matrix_federation_port }}
+        protocol: tcp
+        mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+{% if traefik_acme_enabled %}
+      - traefik-letsencrypt:/letsencrypt
+{% endif %}
+    networks:
+      - {{ traefik_network }}
+    deploy:
+      mode: {{ traefik_deploy_mode }}
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "traefik.enable=false"
+      restart_policy:
+        condition: any
+        delay: 5s
+
+networks:
+  {{ traefik_network }}:
+    external: true
+
+{% if traefik_acme_enabled %}
+volumes:
+  traefik-letsencrypt:
+{% endif %}

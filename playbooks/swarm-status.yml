@@ -1,0 +1,46 @@
+---
+# Check Swarm cluster status
+#
+# Run: ansible-playbook -i inventory/hosts playbooks/swarm-status.yml
+
+- name: Docker Swarm cluster status
+  hosts: swarm_managers
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Swarm nodes
+      ansible.builtin.command: docker node ls
+      register: nodes
+      changed_when: false
+
+    - name: Display nodes
+      ansible.builtin.debug:
+        msg: "{{ nodes.stdout_lines }}"
+
+    - name: Swarm services
+      ansible.builtin.command: docker service ls
+      register: services
+      changed_when: false
+
+    - name: Display services
+      ansible.builtin.debug:
+        msg: "{{ services.stdout_lines }}"
+
+    - name: Overlay networks
+      ansible.builtin.command: docker network ls --filter driver=overlay
+      register: networks
+      changed_when: false
+
+    - name: Display networks
+      ansible.builtin.debug:
+        msg: "{{ networks.stdout_lines }}"
+
+    - name: Stack list
+      ansible.builtin.command: docker stack ls
+      register: stacks
+      changed_when: false
+
+    - name: Display stacks
+      ansible.builtin.debug:
+        msg: "{{ stacks.stdout_lines }}"

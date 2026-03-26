@@ -1,0 +1,30 @@
+---
+# Initialize Docker Swarm cluster
+#
+# Run: ansible-playbook -i inventory/hosts playbooks/swarm-init.yml
+
+- name: Initialize Docker Swarm cluster
+  hosts: swarm
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: swarm-init
+    - role: swarm-networking
+    - role: swarm-placement
+
+- name: Set up shared storage
+  hosts: swarm
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: shared-storage
+
+- name: Deploy Traefik
+  hosts: swarm_managers
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: swarm-traefik

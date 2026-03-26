@@ -1,0 +1,32 @@
+---
+# Overlay networks for cross-node container communication
+
+swarm_overlay_networks:
+  - name: traefik-public
+    driver: overlay
+    attachable: true
+    labels:
+      managed-by: mash-nextgen
+    description: "Public-facing services (Traefik routing)"
+
+  - name: matrix-internal
+    driver: overlay
+    attachable: true
+    labels:
+      managed-by: mash-nextgen
+    description: "Matrix Synapse + workers + bridges"
+
+  - name: database
+    driver: overlay
+    attachable: true
+    internal: true
+    labels:
+      managed-by: mash-nextgen
+    description: "Database connections (PostgreSQL, Redis/Valkey)"
+
+  - name: monitoring
+    driver: overlay
+    attachable: true
+    labels:
+      managed-by: mash-nextgen
+    description: "Monitoring and observability services"

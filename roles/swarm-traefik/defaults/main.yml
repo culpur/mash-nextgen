@@ -1,0 +1,40 @@
+---
+# Traefik in Docker Swarm mode
+#
+# Runs as a global service (one instance per node) with routing mesh.
+# All nodes can receive traffic and route to the correct container.
+
+traefik_version: "v3.6"
+traefik_image: "traefik:{{ traefik_version }}"
+
+# Entrypoints
+traefik_entrypoint_web_port: 80
+traefik_entrypoint_websecure_port: 443
+traefik_entrypoint_matrix_federation_port: 8448
+
+# Forward proxy headers (when behind an upstream reverse proxy like Guard/Apache)
+traefik_forwarded_headers_insecure: true
+
+# Let's Encrypt (disabled by default — assume upstream TLS termination)
+traefik_acme_enabled: false
+traefik_acme_email: ""
+traefik_acme_storage: "/letsencrypt/acme.json"
+
+# Dashboard
+traefik_dashboard_enabled: false
+traefik_dashboard_hostname: ""
+
+# Docker provider
+traefik_docker_endpoint: "unix:///var/run/docker.sock"
+traefik_docker_swarm_mode: true
+traefik_docker_expose_by_default: false
+
+# Network
+traefik_network: "traefik-public"
+
+# Logging
+traefik_log_level: "INFO"
+
+# Deploy configuration
+traefik_deploy_mode: global  # One per node
+traefik_config_dir: /opt/traefik

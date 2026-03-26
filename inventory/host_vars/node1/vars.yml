@@ -1,0 +1,13 @@
+---
+# Node 1 — Swarm Manager
+# This is the primary node running stateful services
+
+swarm_advertise_interface: "{{ ansible_host }}"
+
+swarm_node_labels:
+  role: manager
+  storage: ssd
+  services: core
+
+# NFS: this node is the NFS server
+# Exports are defined in shared-storage defaults

@@ -1,0 +1,18 @@
+---
+# Docker Swarm initialization defaults
+
+# Network interface to advertise for Swarm communication
+swarm_advertise_interface: "{{ ansible_default_ipv4.address }}"
+
+# Port for Swarm management
+swarm_manager_port: 2377
+
+# Enable auto-lock for Swarm (encrypts Raft logs at rest)
+swarm_autolock: false
+
+# Default address pool for overlay networks
+swarm_default_addr_pool: "10.10.0.0/16"
+swarm_default_addr_pool_mask_length: 24
+
+# Docker daemon configuration for Swarm
+swarm_docker_live_restore: false  # Must be false for Swarm mode

@@ -1,0 +1,52 @@
+---
+# Node labels for service placement constraints
+#
+# These labels are applied to Swarm nodes and used in deploy.placement.constraints
+# to control which node a service runs on.
+#
+# Services reference these via:
+#   deploy:
+#     placement:
+#       constraints:
+#         - node.labels.role == manager
+#         - node.labels.storage == ssd
+
+# Labels applied per host (override in host_vars)
+swarm_node_labels:
+  role: "worker"  # 'manager' or 'worker'
+  storage: "hdd"  # 'ssd' or 'hdd' — affects stateful service placement
+
+# Predefined placement rules for common services
+# Used by service roles to set constraints automatically
+swarm_placement_rules:
+  # Stateful services — pin to manager (stable storage)
+  postgresql:
+    constraints:
+      - "node.labels.role == manager"
+  valkey:
+    constraints:
+      - "node.labels.role == manager"
+
+  # Core services — pin to manager
+  synapse_main:
+    constraints:
+      - "node.labels.role == manager"
+
+  # Workers — prefer worker nodes, fallback to any
+  synapse_workers:
+    constraints: []
+    preferences:
+      - spread: "node.id"
+
+  # Bridges — prefer worker nodes
+  bridges:
+    constraints:
+      - "node.labels.role == worker"
+
+  # Traefik — global mode (runs on all nodes)
+  traefik:
+    mode: global
+
+  # Any node
+  default:
+    constraints: []

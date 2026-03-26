@@ -1,0 +1,30 @@
+---
+# Create overlay networks for Docker Swarm
+# Only runs on manager node
+
+- name: Create overlay networks
+  community.docker.docker_network:
+    name: "{{ item.name }}"
+    driver: "{{ item.driver | default('overlay') }}"
+    attachable: "{{ item.attachable | default(true) }}"
+    internal: "{{ item.internal | default(false) }}"
+    labels: "{{ item.labels | default({}) }}"
+    state: present
+  loop: "{{ swarm_overlay_networks }}"
+  when: inventory_hostname in groups['swarm_managers']
+  run_once: true
+
+- name: List networks
+  ansible.builtin.command: docker network ls --filter driver=overlay --format '{{ '{{' }} .Name {{ '}}' }}'
+  register: overlay_networks
+  changed_when: false
+  when: inventory_hostname in groups['swarm_managers']
+  run_once: true
+
+- name: Display overlay networks
+  ansible.builtin.debug:
+    msg: "{{ overlay_networks.stdout_lines }}"
+  when:
+    - inventory_hostname in groups['swarm_managers']
+    - overlay_networks is defined
+  run_once: true

@@ -1,0 +1,44 @@
+---
+# Deploy Traefik as a Swarm service
+
+- name: Create Traefik config directory
+  ansible.builtin.file:
+    path: "{{ traefik_config_dir }}"
+    state: directory
+    mode: '0755'
+  when: inventory_hostname in groups['swarm_managers']
+
+- name: Deploy Traefik stack template
+  ansible.builtin.template:
+    src: traefik-stack.yml.j2
+    dest: "{{ traefik_config_dir }}/traefik-stack.yml"
+    mode: '0644'
+  when: inventory_hostname in groups['swarm_managers']
+
+- name: Deploy Traefik stack
+  ansible.builtin.command: >
+    docker stack deploy
+    --compose-file {{ traefik_config_dir }}/traefik-stack.yml
+    traefik
+  when: inventory_hostname in groups['swarm_managers']
+  run_once: true
+  changed_when: true
+
+- name: Wait for Traefik to be ready
+  ansible.builtin.command: >
+    docker service ls --filter name=traefik_traefik --format '{{ '{{' }} .Replicas {{ '}}' }}'
+  register: traefik_replicas
+  until: "'0/' not in traefik_replicas.stdout"
+  retries: 12
+  delay: 5
+  changed_when: false
+  when: inventory_hostname in groups['swarm_managers']
+  run_once: true
+
+- name: Display Traefik status
+  ansible.builtin.debug:
+    msg: "Traefik replicas: {{ traefik_replicas.stdout }}"
+  when:
+    - inventory_hostname in groups['swarm_managers']
+    - traefik_replicas is defined
+  run_once: true

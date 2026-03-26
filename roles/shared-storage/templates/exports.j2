@@ -1,0 +1,7 @@
+# Managed by mash-nextgen Ansible playbook
+# NFS exports for Docker Swarm shared storage
+
+{% for export in nfs_server_exports %}
+# {{ export.description | default('') }}
+{{ export.path }} {{ export.options }}
+{% endfor %}
